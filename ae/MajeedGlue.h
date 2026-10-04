@@ -69,7 +69,7 @@ struct EffectDef {
 };
 
 // ------------------------------------------------------------- param setup --
-inline PF_Err ParamsSetup(PF_InData* in, PF_OutData* out, const EffectDef& d) {
+inline PF_Err ParamsSetup(PF_InData* in_data, PF_OutData* out, const EffectDef& d) {
     PF_Err err = PF_Err_NONE;
     PF_ParamDef def;
     int offset = 0;
