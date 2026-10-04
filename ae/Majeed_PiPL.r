@@ -10,9 +10,7 @@ resource 'PiPL' (16002, "Dithering MAJEED") {
         Kind { AEEffect },
         Name { "Dithering MAJEED" },
         Category { "MAJEED" },
-        CodeWin64X86 { "EffectMainDitheringMAJEED" },
-        CodeMacIntel64 { "EffectMainDitheringMAJEED" },
-        CodeMacARM64 { "EffectMainDitheringMAJEED" },
+      
         AE_PiPL_Version { 2, 0 },
         AE_Effect_Spec_Version { PF_PLUG_IN_VERSION, PF_PLUG_IN_SUBVERS },
         AE_Effect_Version { 525313 },
