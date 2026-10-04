@@ -207,7 +207,7 @@ inline PF_Err SmartRender(PF_InData* in, PF_OutData* out, PF_SmartRenderExtra* e
 
     // ---- pixel format ----------------------------------------------------
     PF_PixelFormat fmt = PF_PixelFormat_INVALID;
-    AEFX_SuiteScoper<PF_WorldSuite2> ws(in, kPF_WorldSuite, kPF_WorldSuiteVersion2, out);
+   AEFX_SuiteScoper<PF_WorldSuite2> ws(in_data, kPFWorldSuite, kPFWorldSuiteVersion2, out);
     ERR(ws->PF_GetPixelFormat(inW, &fmt));
     if (err) return err;
 
