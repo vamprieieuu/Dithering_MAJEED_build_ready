@@ -178,7 +178,7 @@ inline void store_image(const std::vector<float>& buf, int bw, int bh, PF_Effect
 }
 
 // ------------------------------------------------------------- smart render --
-inline PF_Err SmartRender(PF_InData* in, PF_OutData* out, PF_SmartRenderExtra* extra, const EffectDef& d) {
+inline PF_Err SmartRender(PF_InData* in_data, PF_OutData* out, PF_SmartRenderExtra* extra, const EffectDef& d)
     PF_Err err = PF_Err_NONE, err2 = PF_Err_NONE;
     PF_EffectWorld *inW = NULL, *outW = NULL;
     ERR(extra->cb->checkout_layer_pixels(in->effect_ref, 0, &inW));
