@@ -92,7 +92,7 @@ inline PF_Err ParamsSetup(PF_InData* in_data, PF_OutData* out, const EffectDef& 
         const int id = i + 1 + offset;
         switch (s.t) {
         case T_FLOAT:
-            PF_ADD_FLOAT_SLIDERX(s.name, s.mn, s.mx, s.smn, s.smx, s.def, s.prec, 0, 0, 0, id); break;
+           PF_ADD_FLOAT_SLIDERX(s.name, s.mn, s.mx, s.smn, s.smx, s.def, s.prec, 0, 0, id); break;
         case T_CHECK:
             PF_ADD_CHECKBOX(s.name, "On", s.def > 0.5 ? 1 : 0, 0, id); break;
         case T_POPUP:
