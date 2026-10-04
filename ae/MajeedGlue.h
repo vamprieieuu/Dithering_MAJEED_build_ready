@@ -83,7 +83,7 @@ inline PF_Err ParamsSetup(PF_InData* in_data, PF_OutData* out, const EffectDef& 
         def.ui_height = 82;
         def.u.button_d.u.namesptr = "";
         def.uu.id = 1;
-      PF_ADD_PARAM(in_data, -1, &def));
+     PF_ADD_FLOAT_SLIDER(s.name, s.mn, s.mx, s.smn, s.smx, 0, s.def, s.prec, 0, 0, id); break;
         offset = 1;
     }
     for (int i = 0; i < d.nspecs && !err; ++i) {
