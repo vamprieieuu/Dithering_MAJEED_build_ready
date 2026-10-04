@@ -12,8 +12,6 @@ CTestTestfile.cmake
 _deps
 
 ### After Effects SDK
-extern/AfterEffectsSDK/GPUUtils/
-extern/AfterEffectsSDK/Headers/
 
 
 
