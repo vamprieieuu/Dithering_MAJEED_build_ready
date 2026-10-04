@@ -13,6 +13,7 @@
 #include "Param_Utils.h"
 #include "AE_EffectCBSuites.h"
 #include "AE_EffectSuites.h"
+#include "AE_EffectWorld.h"
 #include "AEFX_SuiteHelper.h"
 #include <vector>
 #include <cstring>
