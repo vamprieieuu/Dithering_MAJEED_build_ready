@@ -266,7 +266,6 @@ static const mj::EffectDef DITHERING_MAJEED_DEF = {
 };
 
 MJ_EXPORT_EFFECT(EffectMain, DITHERING_MAJEED_DEF)
-MJ_EXPORT_EFFECT(EffectMainDitheringMAJEED, DITHERING_MAJEED_DEF)
 
 extern "C" DllExport PF_Err PluginDataEntryFunction2(
     PF_PluginDataPtr inPtr,
