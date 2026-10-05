@@ -10,7 +10,17 @@
 #include <cstring>
 #include <vector>
 #include <algorithm>
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#else
 #include <thread>
+#endif
 
 namespace majeed {
 
@@ -42,6 +52,43 @@ struct FrameCtx {
 template <class F> inline void parallel_rows(int h, F f) {
     if (h <= 0) return;
     if (h < 64) { f(0, h); return; }
+#ifdef _WIN32
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo(&sysinfo);
+    unsigned hc = (unsigned)sysinfo.dwNumberOfProcessors;
+    unsigned n = hc == 0 ? 4u : std::min(4u, hc);
+    if ((int)n > h) n = (unsigned)h;
+    if (n <= 1) { f(0, h); return; }
+    struct Task { const F* fn; int y0, y1; };
+    Task tasks[4];
+    HANDLE handles[4];
+    unsigned spawned = 0;
+    int per = (h + (int)n - 1) / (int)n;
+    auto worker = [](LPVOID param) -> DWORD {
+        const Task* t = static_cast<const Task*>(param);
+        (*t->fn)(t->y0, t->y1);
+        return 0;
+    };
+    for (unsigned i = 0; i < n - 1; ++i) {
+        int y0 = (int)i * per, y1 = std::min(h, y0 + per);
+        if (y0 >= y1) break;
+        tasks[spawned] = { &f, y0, y1 };
+        HANDLE th = CreateThread(nullptr, 0, worker, &tasks[spawned], 0, nullptr);
+        if (th) {
+            handles[spawned++] = th;
+        } else {
+            f(y0, y1);
+        }
+    }
+    int last0 = (int)(n - 1) * per;
+    if (last0 < h) f(last0, h);
+    if (spawned > 0) {
+        WaitForMultipleObjects((DWORD)spawned, handles, TRUE, INFINITE);
+        for (unsigned i = 0; i < spawned; ++i) {
+            CloseHandle(handles[i]);
+        }
+    }
+#else
     unsigned hc = std::thread::hardware_concurrency();
     unsigned n = hc == 0 ? 4u : std::min(4u, hc);
     if ((int)n > h) n = (unsigned)h;
@@ -63,6 +110,7 @@ template <class F> inline void parallel_rows(int h, F f) {
     for (auto& t : th) {
         if (t.joinable()) t.join();
     }
+#endif
 }
 
 inline float clampf(float v, float a, float b) {

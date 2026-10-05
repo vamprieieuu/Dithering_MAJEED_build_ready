@@ -1,8 +1,5 @@
 {
   "name": "YMDithers Studio",
-  "description": "Professional 49-algorithm retro dithering, halftone screening, and procedural contour lines engine inspired by Majeed Dither and DitherTONE.",
-  "permissions": [],
-  "capabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "description": "Web port of the YMDithers C++ After Effects plugin featuring 49 native dithering & halftone algorithms and Canny contour-following procedural lines.",
+  "requestFramePermissions": []
 }

@@ -168,7 +168,7 @@ inline PF_Err ParamsSetup(PF_InData* in_data, PF_OutData* out_data, const Effect
 
 inline PF_Err GlobalSetup(PF_InData*, PF_OutData* out_data, const EffectDef& d) {
     out_data->my_version = PF_VERSION(MAJEED_MAJOR, MAJEED_MINOR, MAJEED_BUG, PF_Stage_RELEASE, MAJEED_BUILD);
-    out_data->out_flags  = PF_OutFlag_DEEP_COLOR_AWARE | (d.customUI ? PF_OutFlag_CUSTOM_UI : 0);
+    out_data->out_flags  = PF_OutFlag_NON_PARAM_VARY | PF_OutFlag_DEEP_COLOR_AWARE | (d.customUI ? PF_OutFlag_CUSTOM_UI : 0);
     out_data->out_flags2 = PF_OutFlag2_FLOAT_COLOR_AWARE | PF_OutFlag2_SUPPORTS_SMART_RENDER | PF_OutFlag2_SUPPORTS_THREADED_RENDERING;
     return PF_Err_NONE;
 }

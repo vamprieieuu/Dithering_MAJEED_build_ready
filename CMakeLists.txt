@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 
 if(NOT WIN32 AND NOT CMAKE_SYSTEM_NAME)
-    find_program(MINGW_GCC NAMES x86_64-w64-mingw32-gcc-posix x86_64-w64-mingw32-gcc)
-    find_program(MINGW_GXX NAMES x86_64-w64-mingw32-g++-posix x86_64-w64-mingw32-g++)
+    find_program(MINGW_GCC NAMES x86_64-w64-mingw32-gcc-win32 x86_64-w64-mingw32-gcc x86_64-w64-mingw32-gcc-posix)
+    find_program(MINGW_GXX NAMES x86_64-w64-mingw32-g++-win32 x86_64-w64-mingw32-g++ x86_64-w64-mingw32-g++-posix)
     find_program(MINGW_WINDRES NAMES x86_64-w64-mingw32-windres)
     if(MINGW_GCC AND MINGW_GXX AND MINGW_WINDRES)
         set(CMAKE_SYSTEM_NAME Windows)
@@ -74,10 +74,18 @@ target_compile_definitions(YMDithers PRIVATE MSWindows _WINDOWS WIN32 _CRT_SECUR
 if(MSVC)
     target_compile_definitions(YMDithers PRIVATE _MSC_VER)
     target_compile_options(YMDithers PRIVATE /W3 /EHsc /permissive-)
-    target_link_options(YMDithers PRIVATE /SUBSYSTEM:WINDOWS)
+    target_link_options(YMDithers PRIVATE /SUBSYSTEM:WINDOWS,6.00)
 else()
     target_compile_options(YMDithers PRIVATE -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -Wno-missing-field-initializers -Wno-unknown-pragmas -O3)
-    target_link_options(YMDithers PRIVATE -static -static-libgcc -static-libstdc++ -Wl,--kill-at -Wl,-s -Wl,--subsystem,windows)
+    target_link_options(YMDithers PRIVATE
+        -static -static-libgcc -static-libstdc++
+        -Wl,--kill-at -Wl,-s
+        -Wl,--subsystem,windows:6.0
+        -Wl,--major-os-version,6 -Wl,--minor-os-version,0
+        -Wl,--major-image-version,6 -Wl,--minor-image-version,0
+        -Wl,--major-subsystem-version,6 -Wl,--minor-subsystem-version,0
+        -Wl,--image-base,0x180000000 -Wl,--disable-auto-image-base
+    )
 endif()
 
 set_target_properties(YMDithers PROPERTIES
@@ -95,6 +103,7 @@ set_target_properties(YMDithers PROPERTIES
 add_custom_command(TARGET YMDithers POST_BUILD
     COMMAND "${Python3_EXECUTABLE}" "${MAJEED_AE_DIR}/post_build_rsrc_fix.py" "$<TARGET_FILE:YMDithers>"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/public"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/public/dist"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/dist"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:YMDithers>"
@@ -102,6 +111,9 @@ add_custom_command(TARGET YMDithers POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:YMDithers>"
         "${CMAKE_CURRENT_SOURCE_DIR}/public/YMDithers.aex"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:YMDithers>"
+        "${CMAKE_CURRENT_SOURCE_DIR}/public/dist/YMDithers.aex"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:YMDithers>"
         "${CMAKE_CURRENT_SOURCE_DIR}/dist/YMDithers.aex"

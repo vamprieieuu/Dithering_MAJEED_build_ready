@@ -23,6 +23,42 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleCompare,
   onOpenSampleModal,
 }) => {
+  const handleDownloadAex = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/YMDithers.aex', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const buf = await res.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      if (bytes.length < 1024 || bytes[0] !== 0x4d || bytes[1] !== 0x5a) {
+        throw new Error('Invalid PE binary header (missing MZ signature).');
+      }
+      const dv = new DataView(buf);
+      const e_lfanew = dv.getUint32(0x3c, true);
+      if (
+        e_lfanew + 92 > bytes.length ||
+        bytes[e_lfanew] !== 0x50 ||
+        bytes[e_lfanew + 1] !== 0x45 ||
+        dv.getUint16(e_lfanew + 4, true) !== 0x8664 ||
+        dv.getUint16(e_lfanew + 24, true) !== 0x020b ||
+        dv.getUint16(e_lfanew + 24 + 68, true) !== 2
+      ) {
+        throw new Error('PE32+ x64 GUI subsystem validation failed.');
+      }
+      const blob = new Blob([buf], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'YMDithers.aex';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      console.error('Failed to download YMDithers.aex:', err);
+    }
+  };
+
   return (
     <header className="h-14 border-b border-zinc-800 bg-[#0d0f14]/95 backdrop-blur px-4 flex items-center justify-between z-30 select-none">
       <div className="flex items-center gap-3">
@@ -89,7 +125,8 @@ export const Header: React.FC<HeaderProps> = ({
         <a
           href="/YMDithers.aex"
           download="YMDithers.aex"
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md hover:shadow-indigo-500/20 transition-all border border-indigo-400/30"
+          onClick={handleDownloadAex}
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md hover:shadow-indigo-500/20 transition-all border border-indigo-400/30 cursor-pointer"
           title="Download the real native After Effects plugin binary (YMDithers.aex)"
         >
           <Layers className="w-3.5 h-3.5 text-indigo-200" />

@@ -313,11 +313,13 @@ void render_lines(const Image& src, const Image& dst, const LinesParams& p, cons
                 strandThick = clampf(strandThick, 0.2f, 15.f);
 
                 // Start arc-length parameter
-                float s0 = rnd(4) * (chain.totalLength - strandL);
+                const float motRandScale = 1.f + (rnd(11) * 2.f - 1.f) * clampf((float)(p.motionRand / 100.0), 0.f, 1.f) * 0.75f;
+                float s0 = rnd(4) * std::max(1.f, chain.totalLength - strandL);
                 if (p.autoAnim) {
-                    float drift = (float)(animTime * 35.0 + rnd(5) * 60.0);
-                    s0 = std::fmod(s0 + drift, std::max(1.f, chain.totalLength - strandL));
-                    if (s0 < 0.f) s0 += (chain.totalLength - strandL);
+                    float drift = (float)(animTime * 35.0 * motRandScale + rnd(5) * 60.0);
+                    float span = std::max(1.f, chain.totalLength - strandL);
+                    s0 = std::fmod(s0 + drift, span);
+                    if (s0 < 0.f) s0 += span;
                 }
 
                 // Color
@@ -335,56 +337,86 @@ void render_lines(const Image& src, const Image& dst, const LinesParams& p, cons
 
                 float alpha = masterAlpha * (1.f - rnd(9) * 0.25f);
 
-                // Number of sub-segments to trace the curve
-                int segCount = std::max(3, std::min(16, (int)std::ceil(strandL / 4.f)));
-                float stepS = strandL / (float)segCount;
-
-                // Function to build and emit one line along the contour with a normal offset
-                auto emitLineAlongContour = [&](float normalOffset, float widthScale, float alphaScale) {
+                // Function to build and emit one line along or anchored to the contour
+                auto emitLineAlongContour = [&](float normalOffset, float lenScale, float widthScale, float alphaScale) {
+                    float effLen = std::max(2.f, strandL * lenScale);
+                    int segCount = std::max(3, std::min(16, (int)std::ceil(effLen / 4.f)));
+                    float stepS = effLen / (float)segCount;
                     float prevX = 0.f, prevY = 0.f;
-                    float wobblePhase = rnd(12) * 6.2831853f;
+                    float wobblePhase = (rnd(12) - 0.5f) * 1.2f;
 
-                    for (int s = 0; s <= segCount; ++s) {
-                        float curS = s0 + s * stepS;
-                        float cx, cy, cnx, cny, ctx, cty;
-                        evaluate_contour(chain, curS, cx, cy, cnx, cny, ctx, cty);
+                    if (p.edgeDirection == LED_ALONG) {
+                        for (int s = 0; s <= segCount; ++s) {
+                            float curS = s0 + s * stepS;
+                            float cx, cy, cnx, cny, ctx, cty;
+                            evaluate_contour(chain, curS, cx, cy, cnx, cny, ctx, cty);
 
-                        // Hand-made organic deviation along normal
-                        float handWobble = 0.f;
-                        if (p.handMade && curveAmt > 0.001f) {
-                            float frac = (float)s / (float)segCount;
-                            float sinCurve = std::sin(frac * 3.14159265f) * curveAmt * 2.4f;
-                            float smallNoise = (rnd(20 + s) * 2.f - 1.f) * curveAmt * 0.7f;
-                            handWobble = sinCurve + smallNoise;
+                            // Hand-made organic deviation along normal (anchored at endpoints via sin(pi*frac))
+                            float handWobble = 0.f;
+                            if (p.handMade && curveAmt > 0.001f) {
+                                float frac = (float)s / (float)segCount;
+                                float env = std::sin(frac * 3.14159265f);
+                                float sinCurve = env * std::cos(wobblePhase) * curveAmt * 2.4f;
+                                float smallNoise = env * (rnd(20 + s) * 2.f - 1.f) * curveAmt * 0.7f;
+                                handWobble = sinCurve + smallNoise;
+                            }
+
+                            float totalNormOffset = normalOffset + handWobble;
+                            float px = cx + cnx * totalNormOffset;
+                            float py = cy + cny * totalNormOffset;
+
+                            if (s > 0) {
+                                float r = strandThick * widthScale * 0.5f;
+                                allSegs.push_back({ prevX, prevY, px, py, r,
+                                                    { strandCol[0], strandCol[1], strandCol[2] },
+                                                    alpha * alphaScale });
+                            }
+                            prevX = px; prevY = py;
                         }
-
-                        float totalNormOffset = normalOffset + handWobble;
-                        float px = cx + cnx * totalNormOffset;
-                        float py = cy + cny * totalNormOffset;
-
-                        if (s > 0) {
+                    } else {
+                        // Anchored at contour point s0, extending along Perpendicular / Random / Custom angle
+                        float cx, cy, cnx, cny, ctx, cty;
+                        evaluate_contour(chain, s0, cx, cy, cnx, cny, ctx, cty);
+                        float dirAng = 0.f;
+                        if (p.edgeDirection == LED_PERP) {
+                            dirAng = std::atan2(cny, cnx);
+                        } else if (p.edgeDirection == LED_RANDOM) {
+                            dirAng = rnd(14) * 6.2831853f;
+                        } else {
+                            dirAng = (float)(p.angle * 0.017453292519943295);
+                        }
+                        float px = cx + cnx * normalOffset;
+                        float py = cy + cny * normalOffset;
+                        float curAng = dirAng;
+                        for (int s = 0; s < segCount; ++s) {
+                            if (p.handMade && curveAmt > 0.001f) {
+                                curAng += (rnd(20 + s) * 2.f - 1.f) * curveAmt * 0.35f;
+                            }
+                            float nx = px + std::cos(curAng) * stepS;
+                            float ny = py + std::sin(curAng) * stepS;
                             float r = strandThick * widthScale * 0.5f;
-                            allSegs.push_back({ prevX, prevY, px, py, r,
+                            allSegs.push_back({ px, py, nx, ny, r,
                                                 { strandCol[0], strandCol[1], strandCol[2] },
                                                 alpha * alphaScale });
+                            px = nx; py = ny;
                         }
-                        prevX = px; prevY = py;
                     }
                 };
 
                 // Primary line: offset is strictly p.edgeOffset (default 0 = tightly glued to contour!)
-                emitLineAlongContour((float)p.edgeOffset, 1.f, 1.f);
+                emitLineAlongContour((float)p.edgeOffset, 1.f, 1.f, 1.f);
 
                 // Duplicate Lines
                 if (p.duplicate) {
                     int dupN = std::max(1, std::min(4, p.duplicateCount));
                     float dupSpacing = (float)p.duplicateOffset;
+                    float dupLScale = clampf((float)(p.duplicateLength / 100.0), 0.1f, 2.0f);
                     float dupWScale = (float)(p.duplicateWidth / std::max(0.1, p.width));
                     float dupAScale = (float)(p.duplicateOpacity / 100.0);
 
                     for (int d = 1; d <= dupN; ++d) {
                         float dupOffset = (float)p.edgeOffset + d * dupSpacing;
-                        emitLineAlongContour(dupOffset, dupWScale, dupAScale);
+                        emitLineAlongContour(dupOffset, dupLScale, dupWScale, dupAScale);
                     }
                 }
             }
@@ -426,14 +458,16 @@ void render_lines(const Image& src, const Image& dst, const LinesParams& p, cons
             }
 
             float alpha = masterAlpha * (1.f - rnd(9) * 0.25f);
-            int segCount = std::max(3, std::min(12, (int)std::ceil(strandL / 8.f)));
-            float segLen = strandL / (float)segCount;
+            const float motRand = clampf((float)(p.motionRand / 100.0), 0.f, 1.f);
 
-            auto emitProceduralLine = [&](float sideOffset, float widthScale, float alphaScale) {
+            auto emitProceduralLine = [&](float sideOffset, float lenScale, float widthScale, float alphaScale) {
+                float effLen = std::max(2.f, strandL * lenScale);
+                int segCount = std::max(3, std::min(12, (int)std::ceil(effLen / 8.f)));
+                float segLen = effLen / (float)segCount;
                 float px = rx - std::sin(dirAngle) * sideOffset;
                 float py = ry + std::cos(dirAngle) * sideOffset;
                 float curAngle = dirAngle;
-                float sway = (float)(std::sin(animTime * 2.5 + rnd(10) * 6.28) * (p.motionAmount * 0.15));
+                float sway = (float)(std::sin(animTime * 2.5 + rnd(10) * 6.28 * motRand) * (p.motionAmount * 0.15));
 
                 for (int s = 0; s < segCount; ++s) {
                     float turn = (rnd(15 + s) * 2.f - 1.f) * curveAmt * 0.35f;
@@ -448,14 +482,15 @@ void render_lines(const Image& src, const Image& dst, const LinesParams& p, cons
                 }
             };
 
-            emitProceduralLine(0.f, 1.f, 1.f);
+            emitProceduralLine(0.f, 1.f, 1.f, 1.f);
             if (p.duplicate) {
                 int dupN = std::max(1, std::min(4, p.duplicateCount));
                 float dupSpacing = (float)p.duplicateOffset;
+                float dupLScale = clampf((float)(p.duplicateLength / 100.0), 0.1f, 2.0f);
                 float dupWScale = (float)(p.duplicateWidth / std::max(0.1, p.width));
                 float dupAScale = (float)(p.duplicateOpacity / 100.0);
                 for (int d = 1; d <= dupN; ++d) {
-                    emitProceduralLine(d * dupSpacing, dupWScale, dupAScale);
+                    emitProceduralLine(d * dupSpacing, dupLScale, dupWScale, dupAScale);
                 }
             }
         }

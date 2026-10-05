@@ -279,6 +279,10 @@ extern "C" DllExport PF_Err PluginDataEntryFunction2(
     (void)inHostVersion;
     PF_Err result = PF_Err_INVALID_CALLBACK;
     if (inPluginDataCallBackPtr) {
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmultichar"
+#endif
         result = PF_REGISTER_EFFECT_EXT2(
             inPtr,
             inPluginDataCallBackPtr,
@@ -288,6 +292,9 @@ extern "C" DllExport PF_Err PluginDataEntryFunction2(
             AE_RESERVED_INFO,
             "EffectMain",
             "https://example.invalid/ymdithers");
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
     }
     return result;
 }

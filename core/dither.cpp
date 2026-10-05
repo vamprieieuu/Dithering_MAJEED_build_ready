@@ -442,7 +442,6 @@ void render_dither(const Image& src, const Image& dst, const DitherParams& p, co
             sinCh[k] = std::sin(rad);
         }
 
-        const float amount = clampf((float)(p.amount / 100.0), 0.f, 1.f);
         parallel_rows(H, [&](int y0, int y1) {
             for (int y = y0; y < y1; ++y) {
                 for (int x = 0; x < W; ++x) {
@@ -663,7 +662,6 @@ void render_dither(const Image& src, const Image& dst, const DitherParams& p, co
         diffuse_plane(pl[k], gw, gh, kid, serp, spread, noise, bias, seed + (uint32_t)k * 193u, L, xerox);
     }
 
-    const float amount = clampf((float)(p.amount / 100.0), 0.f, 1.f);
     parallel_rows(H, [&](int y0, int y1) {
         for (int y = y0; y < y1; ++y) {
             int gy = std::min(gh - 1, y / block);
