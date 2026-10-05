@@ -169,6 +169,7 @@
 #define PF_END_TOPIC(ID) \
 	do { \
 		PF_Err priv_err = PF_Err_NONE; \
+		memset(&def, 0, sizeof(def)); \
 		def.param_type = PF_Param_GROUP_END; \
 		def.uu.id = (ID); \
 		if ((priv_err = PF_ADD_PARAM(in_data, -1, &def)) != PF_Err_NONE) return priv_err; \

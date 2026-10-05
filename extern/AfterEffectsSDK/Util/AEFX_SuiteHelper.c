@@ -58,6 +58,7 @@ PF_Err AEFX_AcquireDrawbotSuites(
 	DRAWBOT_Suites	*suiteP)
 {
 	PF_Err err = PF_Err_NONE;
+	(void)out_data;
 	if (!suiteP) {
 		return PF_Err_BAD_CALLBACK_PARAM;
 	}
@@ -65,16 +66,21 @@ PF_Err AEFX_AcquireDrawbotSuites(
 	suiteP->supplier_suiteP = NULL;
 	suiteP->surface_suiteP = NULL;
 	suiteP->path_suiteP = NULL;
+	suiteP->pen_suiteP = NULL;
+	suiteP->image_suiteP = NULL;
 
-	err = AEFX_AcquireSuite(in_data, out_data, kDRAWBOT_DrawSuite, kDRAWBOT_DrawSuite_VersionCurrent, NULL, (void**)&suiteP->drawbot_suiteP);
+	err = AEFX_AcquireSuite(in_data, NULL, kDRAWBOT_DrawSuite, kDRAWBOT_DrawSuite_VersionCurrent, NULL, (void**)&suiteP->drawbot_suiteP);
 	if (!err) {
-		err = AEFX_AcquireSuite(in_data, out_data, kDRAWBOT_SupplierSuite, kDRAWBOT_SupplierSuite_VersionCurrent, NULL, (void**)&suiteP->supplier_suiteP);
+		err = AEFX_AcquireSuite(in_data, NULL, kDRAWBOT_SupplierSuite, kDRAWBOT_SupplierSuite_VersionCurrent, NULL, (void**)&suiteP->supplier_suiteP);
 	}
 	if (!err) {
-		err = AEFX_AcquireSuite(in_data, out_data, kDRAWBOT_SurfaceSuite, kDRAWBOT_SurfaceSuite_VersionCurrent, NULL, (void**)&suiteP->surface_suiteP);
+		err = AEFX_AcquireSuite(in_data, NULL, kDRAWBOT_SurfaceSuite, kDRAWBOT_SurfaceSuite_VersionCurrent, NULL, (void**)&suiteP->surface_suiteP);
+		if (err || !suiteP->surface_suiteP) {
+			err = AEFX_AcquireSuite(in_data, NULL, kDRAWBOT_SurfaceSuite, kDRAWBOT_SurfaceSuite_Version1, NULL, (void**)&suiteP->surface_suiteP);
+		}
 	}
 	if (!err) {
-		err = AEFX_AcquireSuite(in_data, out_data, kDRAWBOT_PathSuite, kDRAWBOT_PathSuite_VersionCurrent, NULL, (void**)&suiteP->path_suiteP);
+		err = AEFX_AcquireSuite(in_data, NULL, kDRAWBOT_PathSuite, kDRAWBOT_PathSuite_VersionCurrent, NULL, (void**)&suiteP->path_suiteP);
 	}
 	return err;
 }
@@ -84,9 +90,12 @@ PF_Err AEFX_ReleaseDrawbotSuites(
 	PF_OutData		*out_data)
 {
 	PF_Err err = PF_Err_NONE;
-	AEFX_ReleaseSuite(in_data, out_data, kDRAWBOT_DrawSuite, kDRAWBOT_DrawSuite_VersionCurrent, NULL);
-	AEFX_ReleaseSuite(in_data, out_data, kDRAWBOT_SupplierSuite, kDRAWBOT_SupplierSuite_VersionCurrent, NULL);
-	AEFX_ReleaseSuite(in_data, out_data, kDRAWBOT_SurfaceSuite, kDRAWBOT_SurfaceSuite_VersionCurrent, NULL);
-	AEFX_ReleaseSuite(in_data, out_data, kDRAWBOT_PathSuite, kDRAWBOT_PathSuite_VersionCurrent, NULL);
+	(void)out_data;
+	AEFX_ReleaseSuite(in_data, NULL, kDRAWBOT_DrawSuite, kDRAWBOT_DrawSuite_VersionCurrent, NULL);
+	AEFX_ReleaseSuite(in_data, NULL, kDRAWBOT_SupplierSuite, kDRAWBOT_SupplierSuite_VersionCurrent, NULL);
+	if (AEFX_ReleaseSuite(in_data, NULL, kDRAWBOT_SurfaceSuite, kDRAWBOT_SurfaceSuite_VersionCurrent, NULL) != PF_Err_NONE) {
+		AEFX_ReleaseSuite(in_data, NULL, kDRAWBOT_SurfaceSuite, kDRAWBOT_SurfaceSuite_Version1, NULL);
+	}
+	AEFX_ReleaseSuite(in_data, NULL, kDRAWBOT_PathSuite, kDRAWBOT_PathSuite_VersionCurrent, NULL);
 	return err;
 }

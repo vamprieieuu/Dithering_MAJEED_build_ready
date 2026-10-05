@@ -41,7 +41,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MAJEED.aex
-          path: |
-            build/bin/Release/MAJEED.aex
-            build/bin/Release/Dithering MAJEED.aex
+          path: build/bin/Release/MAJEED.aex
           if-no-files-found: error
