@@ -1,5 +1,5 @@
 // ============================================================================
-// MAJEED CHANNELS - true per-channel resampling.
+// YMDithers CHANNELS - true per-channel sub-pixel resampling.
 // R, G and B are each sampled from the source at their own sub-pixel position
 // (manual offsets + linear/radial separation + per-row/per-frame random jitter),
 // then gain, hue rotation (YIQ), saturation, tint, brightness/contrast, invert.
@@ -9,8 +9,11 @@
 namespace majeed {
 
 void render_channels(const Image& src, const Image& dst, const ChannelParams& p, const FrameCtx& c) {
+    if (!src.px || !dst.px || src.w <= 0 || src.h <= 0) return;
     const int W = src.w, H = src.h;
-    const float isx = (float)(1.0 / c.scaleX), isy = (float)(1.0 / c.scaleY);
+    const double safeSx = c.scaleX > 1e-4 ? c.scaleX : 1.0;
+    const double safeSy = c.scaleY > 1e-4 ? c.scaleY : 1.0;
+    const float isx = (float)(1.0 / safeSx), isy = (float)(1.0 / safeSy);
     const float off[3][2] = { { (float)p.rX * isx, (float)p.rY * isy },
                               { (float)p.gX * isx, (float)p.gY * isy },
                               { (float)p.bX * isx, (float)p.bY * isy } };
@@ -18,30 +21,48 @@ void render_channels(const Image& src, const Image& dst, const ChannelParams& p,
     const float sdx = std::cos(sepA), sdy = std::sin(sepA);
     const float sepAmt = (float)p.sepAmount;
     const float sgn[3] = { 1.f, 0.f, -1.f };
-    const float cxm = W * 0.5f, cym = H * 0.5f, halfDiag = std::sqrt(cxm * cxm + cym * cym);
+    const float cxm = W * 0.5f, cym = H * 0.5f, halfDiag = std::max(1.f, std::sqrt(cxm * cxm + cym * cym));
     const float rnd = (float)p.random * isx;
-    const int rStep = (int)std::floor(c.timeSec * std::max(0.0, p.randomRate) + 1e-4);
+    const double fps = c.fps > 0.1 ? c.fps : 24.0;
+    const int rStep = (int)std::floor((double)c.frame() * (std::max(0.0, p.randomRate) / fps) + 1e-4);
     const uint32_t seed = hash_u32((uint32_t)p.seed + 0xC4A7u);
     const float gain[3] = { (float)(p.rGain / 100.0), (float)(p.gGain / 100.0), (float)(p.bGain / 100.0) };
     const float sat = (float)(p.colorAmt / 100.0);
     const float hue = (float)p.hue * 0.017453293f, ch = std::cos(hue), sh = std::sin(hue);
     const float tint[3] = { p.tint.r, p.tint.g, p.tint.b };
-    const float tAmt = (float)clampf((float)(p.tintAmt / 100.0), 0.f, 1.f);
+    const float tAmt = clampf((float)(p.tintAmt / 100.0), 0.f, 1.f);
     const float contrast = (float)(p.contrast / 100.0), bright = (float)(p.brightness / 100.0);
+
+    // Copy source to a temporary buffer if src.px == dst.px to prevent in-place overwrite
+    std::vector<float> srcCopy;
+    Image srcView = src;
+    if (src.px == dst.px) {
+        srcCopy.assign(src.px, src.px + (size_t)W * H * 4);
+        srcView.px = srcCopy.data();
+    }
 
     parallel_rows(H, [&](int y0, int y1) {
         for (int y = y0; y < y1; ++y) {
             float rowJ[3] = { 0, 0, 0 };
-            if (rnd > 0.f) for (int k = 0; k < 3; ++k) rowJ[k] = s11(hash4((uint32_t)y, (uint32_t)rStep, seed, (uint32_t)k)) * rnd;
+            if (rnd > 0.f) {
+                for (int k = 0; k < 3; ++k)
+                    rowJ[k] = s11(hash4((uint32_t)y, (uint32_t)rStep, seed, (uint32_t)k)) * rnd;
+            }
             for (int x = 0; x < W; ++x) {
                 float v[3], tmp[4];
                 for (int k = 0; k < 3; ++k) {
                     float ox = off[k][0] + rowJ[k], oy = off[k][1];
                     if (sepAmt != 0.f && sgn[k] != 0.f) {
-                        if (p.sepMode == 0) { ox += sgn[k] * sepAmt * sdx * isx; oy += sgn[k] * sepAmt * sdy * isy; }
-                        else { float rx = (x - cxm) / halfDiag, ry = (y - cym) / halfDiag; ox += sgn[k] * sepAmt * rx * isx; oy += sgn[k] * sepAmt * ry * isy; }
+                        if (p.sepMode == 0) {
+                            ox += sgn[k] * sepAmt * sdx * isx;
+                            oy += sgn[k] * sepAmt * sdy * isy;
+                        } else {
+                            float rx = (x - cxm) / halfDiag, ry = (y - cym) / halfDiag;
+                            ox += sgn[k] * sepAmt * rx * isx;
+                            oy += sgn[k] * sepAmt * ry * isy;
+                        }
                     }
-                    sample_bilinear(src, x + 0.5f - ox - 0.5f, y - oy, tmp);
+                    sample_bilinear(srcView, x + 0.5f - ox - 0.5f, y - oy, tmp);
                     v[k] = tmp[k] * gain[k];
                 }
                 if (hue != 0.f || sat != 1.f) {
@@ -53,9 +74,9 @@ void render_channels(const Image& src, const Image& dst, const ChannelParams& p,
                 float* o = dst.at(x, y);
                 for (int k = 0; k < 3; ++k) {
                     float t = (v[k] - 0.5f) * contrast + 0.5f + bright;
-                    o[k] = p.invert ? 1.f - t : t;
+                    o[k] = clampf(p.invert ? 1.f - t : t, 0.f, 1.f);
                 }
-                o[3] = src.at(x, y)[3];
+                o[3] = srcView.at(x, y)[3];
             }
         }
     });

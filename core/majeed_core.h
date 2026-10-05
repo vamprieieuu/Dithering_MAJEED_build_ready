@@ -1,12 +1,13 @@
 // ============================================================================
-// MAJEED native engine - SDK independent core.
-// All pixel work of every MAJEED effect lives here. The After Effects glue in
+// YMDithers native engine - SDK independent core.
+// All pixel work of every YMDithers effect lives here. The After Effects glue in
 // ../ae only converts AE buffers <-> float RGBA and forwards parameters.
 // ============================================================================
 #pragma once
 #include <cstdint>
 #include <cmath>
 #include <cstddef>
+#include <cstring>
 #include <vector>
 #include <algorithm>
 #include <thread>
@@ -34,30 +35,45 @@ struct FrameCtx {
     double fullW     = 1920;  // full-res layer size (used for mm -> px conversion)
     double fullH     = 1080;
     double pixelAspect = 1.0;
-    int    frame() const { return (int)std::floor(timeSec * fps + 0.5); }
+    int    frame() const { return (int)std::floor(timeSec * (fps > 0.1 ? fps : 24.0) + 0.5); }
 };
 
 // ------------------------------------------------------------- utilities ---
 template <class F> inline void parallel_rows(int h, F f) {
-    unsigned n = std::thread::hardware_concurrency();
-    if (n == 0) n = 4;
-    if (n > 16) n = 16;
-    if ((int)n > h) n = (unsigned)std::max(1, h);
+    if (h <= 0) return;
+    if (h < 64) { f(0, h); return; }
+    unsigned hc = std::thread::hardware_concurrency();
+    unsigned n = hc == 0 ? 4u : std::min(4u, hc);
+    if ((int)n > h) n = (unsigned)h;
     if (n <= 1) { f(0, h); return; }
     std::vector<std::thread> th;
+    th.reserve(n - 1);
     int per = (h + (int)n - 1) / (int)n;
-    for (unsigned i = 0; i < n; ++i) {
+    for (unsigned i = 0; i < n - 1; ++i) {
         int y0 = (int)i * per, y1 = std::min(h, y0 + per);
         if (y0 >= y1) break;
-        th.emplace_back([=, &f] { f(y0, y1); });
+        try {
+            th.emplace_back([=, &f] { f(y0, y1); });
+        } catch (...) {
+            f(y0, y1);
+        }
     }
-    for (auto& t : th) t.join();
+    int last0 = (int)(n - 1) * per;
+    if (last0 < h) f(last0, h);
+    for (auto& t : th) {
+        if (t.joinable()) t.join();
+    }
 }
 
-inline float clampf(float v, float a, float b) { return v < a ? a : (v > b ? b : v); }
+inline float clampf(float v, float a, float b) {
+    if (!(v == v)) return a; // NaN guard
+    return v < a ? a : (v > b ? b : v);
+}
 inline float lerpf(float a, float b, float t) { return a + (b - a) * t; }
 inline float smoothstepf(float a, float b, float x) {
-    float t = clampf((x - a) / (b - a), 0.f, 1.f);
+    float denom = b - a;
+    if (std::fabs(denom) < 1e-6f) return x >= b ? 1.f : 0.f;
+    float t = clampf((x - a) / denom, 0.f, 1.f);
     return t * t * (3.f - 2.f * t);
 }
 inline float luma709(float r, float g, float b) { return 0.2126f * r + 0.7152f * g + 0.0722f * b; }
@@ -92,6 +108,7 @@ struct Rng {
 
 // -------------------------------------------------------------- noise -----
 inline float shape_interp(float t, float softness /*0 hard .. 1 smooth*/) {
+    t = clampf(t, 0.f, 1.f);
     float q = t * t * t * (t * (t * 6.f - 15.f) + 10.f);       // quintic
     float k = 1.f + (1.f - softness) * 14.f;                    // steepen when hard
     return clampf((q - 0.5f) * k + 0.5f, 0.f, 1.f);
@@ -158,18 +175,21 @@ inline float blend_channel(int mode, float b, float l, float d) {
 enum GrainType { GT_GAUSS = 0, GT_CRYSTAL = 1, GT_TAPE = 2, GT_CLUSTER = 3 };
 struct GrainParams {
     int    type = GT_CRYSTAL;
-    double sizeMm = 8.0;            // 4 .. 64 mm
+    double sizeMm = 16.0;           // 4 .. 64 mm
     double frameWidthMm = 2400.0;   // physical width the layer width represents
-    double amount = 50, density = 100, contrast = 100, brightness = 0;
-    double sharpness = 30, softness = 50, threshold = 0, distribution = 0, clumping = 0;
-    double fine = 0, coarse = 0, aspect = 100, specks = 0;
-    double shadows = 100, highlights = 100;
+    double amount = 45, density = 85, contrast = 100, brightness = 0;
+    double sharpness = 40, softness = 35, threshold = 0, distribution = 0, clumping = 18;
+    double fine = 35, coarse = 15, aspect = 100, specks = 0;
+    double shadows = 90, midtones = 100, highlights = 45;
+    double lumaResponse = 85;       // 0 = flat overlay, 100 = authentic film toe/shoulder response
+    double colorResponse = 60;      // chromatic dye-cloud response in Color mode
     int    seed = 0;
     double evolutionDeg = 0, evoSpeed = 24; bool smoothEvo = false;
-    double opacity = 100; int blend = BM_ADD_SIGNED;
+    bool   autoAnim = true;         // automatic deterministic frame animation without keyframing seed
+    double opacity = 100; int blend = BM_OVERLAY;
     bool   mono = false;
     double rgbGrain = 100, redAmt = 100, greenAmt = 100, blueAmt = 100;
-    double colorVar = 0, colorRand = 0, chanVar = 0, saturation = 100;
+    double colorVar = 15, colorRand = 10, chanVar = 10, saturation = 100;
     double rgbSep = 0;                       // px offset of R / B grain fields (x)
     RGB    grainColor = {1, 1, 1}; double colorAmt = 0;  // tint of the grain itself
     // Tape type only: row structure
@@ -220,16 +240,18 @@ int dither_algo_count();
 const DitherAlgoInfo& dither_algo(int i);
 int dither_algo_find(const char* name);   // -1 if not found
 struct DitherParams {
-    int    algo = 0;
-    int    mode = 0;                 // 0 preserve colours, 1 black&white, 2 two-tone
-    int    levels = 2;               // tones per channel (2..32)
-    double size = 1;                 // dither pixel size in full-res px
+    int    algo = 16;                // default Bayer 4x4 (0-based index 16)
+    int    mode = 0;                 // 0 preserve RGB, 1 monochrome B&W, 2 duo-tone (dark/light), 3 CMYK halftone separation, 4 tonal tritone ramp
+    int    levels = 2;               // tones per channel (2..64)
+    double size = 2;                 // dither pixel size in full-res px
+    double threshold = 50;           // threshold / dot density bias (0..100, 50 = neutral)
     double amount = 100, strength = 100, contrast = 100, brightness = 0;
-    bool   serpentine = false, linear = false, invert = false, preserveAlpha = true;
+    bool   serpentine = true, linear = false, invert = false, preserveAlpha = true;
+    bool   animate = false;          // deterministic frame animation for noise/randomness
     double patternScale = 100, patternAngle = 0;    // percent of the algorithm default / added degrees
-    double noise = 0;                // extra threshold noise
+    double noise = 0;                // extra threshold randomness/jitter (0..100)
     int    seed = 0;
-    RGB    dark = {0, 0, 0}, light = {1, 1, 1};
+    RGB    dark = {0, 0, 0}, light = {1, 1, 1}, mid = {0.5f, 0.5f, 0.5f};
 };
 void render_dither(const Image& src, const Image& dst, const DitherParams& p, const FrameCtx& c);
 
@@ -238,18 +260,38 @@ void render_dither(const Image& src, const Image& dst, const DitherParams& p, co
 // =========================================================================
 struct VHSParams {
     double trackAmount = 20, trackSize = 40, trackSpeed = 50, headSwitch = 40, headHeight = 6;
-    double jitterAmount = 15, jitterRate = 100;
-    double bleed = 30, bleedShift = 2, lumaSoft = 10;
-    double rSepX = 0, bSepX = 0;
+    double jitterAmount = 15, jitterRate = 100, vertInstability = 10;
+    double bleed = 35, bleedShift = 2.5, lumaSoft = 15;
+    double rSepX = 1.5, bSepX = -1.5;
     double staticAmount = 35, staticSize = 100;
     double dashes = 30, dashLength = 100, dashRows = 2;
     double streaks = 25, streakWidth = 2;
-    double scanlines = 30, scanPeriod = 3, scanSharp = 50, interlace = 30;
+    double scanlines = 30, scanPeriod = 3, scanSharp = 50, interlace = 35;
     double flicker = 20;
     double saturation = 100;
     double speed = 100; int seed = 0;
 };
 void render_vhs(const Image& src, const Image& dst, const VHSParams& p, const FrameCtx& c);
+
+// =========================================================================
+//  NTSC  (vhs.cpp)
+// =========================================================================
+struct NTSCParams {
+    double chromaBleed = 45;         // YIQ I/Q bandwidth limiting smear (0..100)
+    double dotCrawl = 40;            // 3.58MHz subcarrier dot crawl & rainbow cross-color (0..100)
+    double carrierFreq = 100;        // Subcarrier frequency scale (25..250%)
+    double phaseSkew = 20;           // Horizontal sync phase distortion & line warp (0..100)
+    double ghosting = 25;            // Multipath RF echo / ghosting (0..100)
+    double ghostShift = 12;          // RF ghost offset in pixels (-60..60)
+    double ringing = 30;             // Analog luma overshoot / ringing on sharp edges (0..100)
+    double scanlines = 35;           // NTSC 525-line CRT scanlines (0..100)
+    double scanPitch = 3.0;          // Scanline pitch in pixels (1.5..16)
+    double rfNoise = 20;             // Analog RF snow / carrier noise (0..100)
+    double colorSep = 2.0;           // Chroma delay / Y-C registration offset (px)
+    double speed = 100;              // Automatic temporal animation speed (%)
+    int    seed = 0;
+};
+void render_ntsc(const Image& src, const Image& dst, const NTSCParams& p, const FrameCtx& c);
 
 // =========================================================================
 //  CHANNELS  (channels.cpp)
@@ -265,11 +307,20 @@ struct ChannelParams {
 };
 void render_channels(const Image& src, const Image& dst, const ChannelParams& p, const FrameCtx& c);
 
-// shared bilinear sampler (edge clamped)
+// shared bilinear sampler (edge clamped & bounds-safe)
 inline void sample_bilinear(const Image& im, float x, float y, float* out4) {
-    x = clampf(x, 0.f, (float)(im.w - 1)); y = clampf(y, 0.f, (float)(im.h - 1));
-    int x0 = (int)x, y0 = (int)y; int x1 = std::min(x0 + 1, im.w - 1), y1 = std::min(y0 + 1, im.h - 1);
-    float fx = x - x0, fy = y - y0;
+    if (!im.px || im.w <= 0 || im.h <= 0) {
+        out4[0] = out4[1] = out4[2] = out4[3] = 0.f;
+        return;
+    }
+    x = clampf(x, 0.f, (float)(im.w - 1));
+    y = clampf(y, 0.f, (float)(im.h - 1));
+    int x0 = std::max(0, std::min(im.w - 1, (int)x));
+    int y0 = std::max(0, std::min(im.h - 1, (int)y));
+    int x1 = std::min(x0 + 1, im.w - 1);
+    int y1 = std::min(y0 + 1, im.h - 1);
+    float fx = clampf(x - x0, 0.f, 1.f);
+    float fy = clampf(y - y0, 0.f, 1.f);
     const float *a = im.at(x0, y0), *b = im.at(x1, y0), *c = im.at(x0, y1), *d = im.at(x1, y1);
     for (int k = 0; k < 4; ++k)
         out4[k] = lerpf(lerpf(a[k], b[k], fx), lerpf(c[k], d[k], fx), fy);

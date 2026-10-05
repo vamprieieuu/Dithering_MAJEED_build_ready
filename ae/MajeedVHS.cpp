@@ -54,6 +54,6 @@ static void vhs_render(const Image& src, Image& dst, const mj::Vals& v, const Fr
     p.speed = v[VH_SPEED]; p.seed = (int)v[VH_SEED];
     render_vhs(src, dst, p, c);
 }
-static const mj::EffectDef VHS_DEF = { "MAJEED VHS", VHS_specs, VHS_COUNT, vhs_render,
+static const mj::EffectDef VHS_DEF = { "YMDithers VHS", VHS_specs, VHS_COUNT, vhs_render,
     "Tracking, head-switch skew, chroma bleed, dashes, streaks, scanlines, tape static." };
 MJ_EXPORT_EFFECT(EffectMainVHS, VHS_DEF)

@@ -71,6 +71,6 @@ static void lines_render(const Image& src, Image& dst, const mj::Vals& v, const 
     p.jitter = v[LN_JITTER]; p.jitterSpeed = v[LN_JITSPD];
     render_lines(src, dst, p, c);
 }
-static const mj::EffectDef LINES_DEF = { "MAJEED Random Lines", LINES_specs, LINES_COUNT, lines_render,
+static const mj::EffectDef LINES_DEF = { "YMDithers Lines", LINES_specs, LINES_COUNT, lines_render,
     "Procedural scribble: every line is generated, animated and stroked natively." };
 MJ_EXPORT_EFFECT(EffectMainLines, LINES_DEF)

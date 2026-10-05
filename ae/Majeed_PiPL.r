@@ -1,4 +1,4 @@
-// PiPL resource for the unified Dithering MAJEED effect.
+// PiPL resource for the unified YMDithers effect.
 #include "AEConfig.h"
 #include "AE_EffectVers.h"
 #ifndef AE_OS_WIN
@@ -8,8 +8,8 @@
 resource 'PiPL' (16000) {
     {
         Kind { AEEffect },
-        Name { "Dithering MAJEED" },
-        Category { "MAJEED" },
+        Name { "YMDithers" },
+        Category { "YMDithers" },
 #ifdef AE_OS_WIN
     #ifdef AE_PROC_INTELx64
         CodeWin64X86 { "EffectMain" },
@@ -26,8 +26,8 @@ resource 'PiPL' (16000) {
         AE_Effect_Info_Flags { 0 },
         AE_Effect_Global_OutFlags { 0x02008000 },
         AE_Effect_Global_OutFlags_2 { 0x08001400 },
-        AE_Effect_Match_Name { "Dithering MAJEED" },
+        AE_Effect_Match_Name { "YMDithers" },
         AE_Reserved_Info { 8 },
-        AE_Effect_Support_URL { "https://example.invalid/majeed" }
+        AE_Effect_Support_URL { "https://example.invalid/ymdithers" }
     }
 };

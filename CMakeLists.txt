@@ -13,14 +13,14 @@ if(NOT WIN32 AND NOT CMAKE_SYSTEM_NAME)
     endif()
 endif()
 
-project(MAJEED LANGUAGES C CXX)
+project(YMDithers LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 11)
 
 if(NOT WIN32)
-    message(FATAL_ERROR "MAJEED AEX build requires a Windows x64 target (MSVC or MinGW-w64).")
+    message(FATAL_ERROR "YMDithers AEX build requires a Windows x64 target (MSVC or MinGW-w64).")
 endif()
 
 enable_language(RC)
@@ -114,33 +114,33 @@ endif()
 file(GLOB MAJEED_AE_SOURCES CONFIGURE_DEPENDS "${MAJEED_AE_DIR}/*.cpp")
 file(GLOB MAJEED_CORE_SOURCES CONFIGURE_DEPENDS "${MAJEED_CORE_DIR}/*.cpp")
 
-add_library(MAJEED SHARED
+add_library(YMDithers SHARED
     "${PIPL_RC}"
     ${MAJEED_AE_SOURCES}
     ${MAJEED_CORE_SOURCES}
 )
 
-add_dependencies(MAJEED AESDK)
+add_dependencies(YMDithers AESDK)
 
-target_include_directories(MAJEED PRIVATE
+target_include_directories(YMDithers PRIVATE
     "${MAJEED_AE_DIR}"
     "${MAJEED_CORE_DIR}"
     ${AESDK_INCLUDE}
 )
 
-target_link_libraries(MAJEED PRIVATE AESDK)
+target_link_libraries(YMDithers PRIVATE AESDK)
 
-target_compile_definitions(MAJEED PRIVATE MSWindows _WINDOWS WIN32 _CRT_SECURE_NO_WARNINGS)
+target_compile_definitions(YMDithers PRIVATE MSWindows _WINDOWS WIN32 _CRT_SECURE_NO_WARNINGS)
 if(MSVC)
-    target_compile_options(MAJEED PRIVATE /W3 /EHsc /permissive-)
+    target_compile_options(YMDithers PRIVATE /W3 /EHsc /permissive-)
 else()
-    target_compile_options(MAJEED PRIVATE -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -Wno-missing-field-initializers -Wno-unknown-pragmas -O3)
-    target_link_options(MAJEED PRIVATE -static -static-libgcc -static-libstdc++ -Wl,--kill-at -Wl,-s)
+    target_compile_options(YMDithers PRIVATE -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -Wno-missing-field-initializers -Wno-unknown-pragmas -O3)
+    target_link_options(YMDithers PRIVATE -static -static-libgcc -static-libstdc++ -Wl,--kill-at -Wl,-s)
 endif()
 
-set_target_properties(MAJEED PROPERTIES
+set_target_properties(YMDithers PROPERTIES
     PREFIX ""
-    OUTPUT_NAME "MAJEED"
+    OUTPUT_NAME "YMDithers"
     SUFFIX ".aex"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/bin/Debug"
@@ -150,25 +150,22 @@ set_target_properties(MAJEED PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/bin/Release"
 )
 
-add_custom_command(TARGET MAJEED POST_BUILD
+add_custom_command(TARGET YMDithers POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/public"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<TARGET_FILE:MAJEED>"
-        "$<TARGET_FILE_DIR:MAJEED>/Dithering MAJEED.aex"
+        "$<TARGET_FILE:YMDithers>"
+        "${CMAKE_BINARY_DIR}/YMDithers.aex"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<TARGET_FILE:MAJEED>"
-        "${CMAKE_BINARY_DIR}/MAJEED.aex"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<TARGET_FILE:MAJEED>"
-        "${CMAKE_CURRENT_SOURCE_DIR}/public/MAJEED.aex"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<TARGET_FILE:MAJEED>"
-        "${CMAKE_CURRENT_SOURCE_DIR}/public/Dithering MAJEED.aex"
-    COMMENT "Copying MAJEED.aex to build root, public/, and Dithering MAJEED.aex"
+        "$<TARGET_FILE:YMDithers>"
+        "${CMAKE_CURRENT_SOURCE_DIR}/public/YMDithers.aex"
+    COMMENT "Copying YMDithers.aex to build root and public/"
 )
+
+# Alias target so `cmake --build build --target MAJEED` also works if invoked by scripts
+add_custom_target(MAJEED DEPENDS YMDithers)
 
 set(PLUGIN_FOLDER
     "C:/Program Files/Adobe/Adobe After Effects 2023/Support Files/Plug-ins/"
     CACHE STRING "After Effects plugin folder"
 )
-install(TARGETS MAJEED DESTINATION "${PLUGIN_FOLDER}")
+install(TARGETS YMDithers DESTINATION "${PLUGIN_FOLDER}")

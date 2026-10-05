@@ -71,6 +71,6 @@ static void grain_render(const Image& src, Image& dst, const mj::Vals& v, const 
     p.opacity = v[GR_OPACITY]; p.blend = v.pop(GR_BLEND);
     render_grain(src, dst, p, c);
 }
-static const mj::EffectDef GRAIN_DEF = { "MAJEED Grain", GRAIN_specs, GRAIN_COUNT, grain_render,
+static const mj::EffectDef GRAIN_DEF = { "YMDithers Grain", GRAIN_specs, GRAIN_COUNT, grain_render,
     "4 procedural grain generators, 4-64 mm grain size." };
 MJ_EXPORT_EFFECT(EffectMainGrain, GRAIN_DEF)

@@ -1,4 +1,4 @@
-name: Build MAJEED.aex
+name: Build YMDithers.aex
 
 on:
   push:
@@ -20,26 +20,26 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
 
-      - name: Build MAJEED target
-        run: cmake --build build --config Release --target MAJEED --parallel
+      - name: Build YMDithers target
+        run: cmake --build build --config Release --target YMDithers --parallel
 
-      - name: Verify MAJEED.aex
+      - name: Verify YMDithers.aex
         shell: pwsh
         run: |
-          $aex = Get-ChildItem -Path build -Filter 'MAJEED.aex' -Recurse -File | Select-Object -First 1
+          $aex = Get-ChildItem -Path build -Filter 'YMDithers.aex' -Recurse -File | Select-Object -First 1
           if (-not $aex) {
-            Write-Host "MAJEED.aex was not found. Built files:"
+            Write-Host "YMDithers.aex was not found. Built files:"
             Get-ChildItem -Path build -Recurse -File | Where-Object { $_.Extension -in '.aex','.dll','.lib','.obj','.rc' } | Select-Object FullName,Length
-            Write-Error "MAJEED.aex was not produced."
+            Write-Error "YMDithers.aex was not produced."
             exit 1
           }
           Write-Host "Built: $($aex.FullName)"
           Get-Item $aex.FullName | Format-List FullName,Length,LastWriteTime
           dumpbin /headers /exports $aex.FullName
 
-      - name: Upload MAJEED.aex
+      - name: Upload YMDithers.aex
         uses: actions/upload-artifact@v4
         with:
-          name: MAJEED.aex
-          path: build/bin/Release/MAJEED.aex
+          name: YMDithers.aex
+          path: build/bin/Release/YMDithers.aex
           if-no-files-found: error

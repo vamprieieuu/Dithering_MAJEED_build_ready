@@ -26,9 +26,11 @@ inline float pow_signed(float t, float e) { return t < 0 ? -std::pow(-t, e) : st
 } // namespace
 
 void render_lines(const Image& src, const Image& dst, const LinesParams& p, const FrameCtx& c) {
+    if (!src.px || !dst.px || src.w <= 0 || src.h <= 0) return;
     const int W = src.w, H = src.h;
-    const float FW = (float)c.fullW, FH = (float)c.fullH;
-    const float invSx = (float)(1.0 / c.scaleX), invSy = (float)(1.0 / c.scaleY);
+    const float FW = (float)std::max(16.0, c.fullW), FH = (float)std::max(16.0, c.fullH);
+    const float invSx = (float)(1.0 / (c.scaleX > 1e-4 ? c.scaleX : 1.0));
+    const float invSy = (float)(1.0 / (c.scaleY > 1e-4 ? c.scaleY : 1.0));
     const uint32_t seedB = hash_u32((uint32_t)p.seed * 2654435761u + 0x51u);
 
     const int N = (int)std::max(0.0, std::min(p.amount, 60000.0));

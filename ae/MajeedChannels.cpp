@@ -45,6 +45,6 @@ static void ch_render(const Image& src, Image& dst, const mj::Vals& v, const Fra
     p.tint = v.col(CC_TINT); p.tintAmt = v[CC_TINTAMT]; p.brightness = v[CC_BRIGHT]; p.contrast = v[CC_CONTRAST]; p.invert = v.on(CC_INVERT);
     render_channels(src, dst, p, c);
 }
-static const mj::EffectDef CH_DEF = { "MAJEED Channels", CH_specs, CH_COUNT, ch_render,
+static const mj::EffectDef CH_DEF = { "YMDithers Channels", CH_specs, CH_COUNT, ch_render,
     "Per-channel sub-pixel offsets, radial/linear RGB separation, gains, hue, tint." };
 MJ_EXPORT_EFFECT(EffectMainChannels, CH_DEF)

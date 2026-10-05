@@ -1,9 +1,9 @@
 // ============================================================================
-// MAJEED - After Effects SDK glue (shared by all effects).
+// YMDithers - After Effects SDK glue (shared by all effects).
 // Table-driven: every effect declares its parameters once (X-macro list) and a
 // render function that maps the parameter values onto the native engine in ../core.
 // Uses SmartFX (8 / 16 / 32-bit float). NO native AE effects are applied here.
-// Target: After Effects 23.2.1 SDK, MSVC / Visual Studio 2022.
+// Target: After Effects 23.2.1 SDK, MSVC / Visual Studio 2022 & MinGW-w64 x64.
 // ============================================================================
 #pragma once
 #define PF_DEEP_COLOR_AWARE 1
@@ -40,7 +40,7 @@ struct PSpec {
     const char* popup; int npop;                 // popup ("a|b|c"), def = 1-based default
     float r, g, b;                               // colour default
 };
-constexpr int MAXP = 96;
+constexpr int MAXP = 256;
 
 // X-macro helpers:  expansion 1 -> enum,  expansion 2 -> PSpec table
 #define MJ_ENUM_F(id,name,mn,mx,smn,smx,def,prec) id,
@@ -64,10 +64,13 @@ constexpr int MAXP = 96;
 // Parameter values handed to the effect's render function
 struct Vals {
     double f[MAXP]; float c[MAXP][3];
-    double operator[](int i) const { return f[i]; }
-    bool   on(int i) const { return f[i] > 0.5; }
-    int    pop(int i) const { return (int)f[i]; }               // 0-based popup index
-    majeed::RGB col(int i) const { return { c[i][0], c[i][1], c[i][2] }; }
+    double operator[](int i) const { return (i >= 0 && i < MAXP) ? f[i] : 0.0; }
+    bool   on(int i) const { return (i >= 0 && i < MAXP) ? (f[i] > 0.5) : false; }
+    int    pop(int i) const { return (i >= 0 && i < MAXP) ? (int)f[i] : 0; }               // 0-based popup index
+    majeed::RGB col(int i) const {
+        if (i < 0 || i >= MAXP) return { 0.f, 0.f, 0.f };
+        return { c[i][0], c[i][1], c[i][2] };
+    }
 };
 
 // dst is mutable: the render function writes its result into it.
@@ -91,7 +94,7 @@ inline PF_Err ParamsSetup(PF_InData* in_data, PF_OutData* out_data, const Effect
         // Custom-UI (ECW) parameter: a no-data control drawn by the effect's event handler.
         AEFX_CLR_STRUCT(def);
         def.param_type = PF_Param_NO_DATA;
-        PF_STRNNCPY(def.name, "MAJEED", sizeof(def.name));
+        PF_STRNNCPY(def.name, "YMDithers", sizeof(def.name));
         def.flags    = 0;
         def.ui_flags = PF_PUI_CONTROL;
         def.ui_width = 140;
@@ -199,7 +202,10 @@ inline void load_image(const PF_EffectWorld* w, PF_PixelFormat fmt, std::vector<
             else if (fmt == PF_PixelFormat_ARGB64) { const PF_Pixel16* p = (const PF_Pixel16*)row + x;       a = ch16(p->alpha); r = ch16(p->red); g = ch16(p->green); b = ch16(p->blue); }
             else                                   { const PF_PixelFloat* p = (const PF_PixelFloat*)row + x; a = p->alpha;       r = p->red;       g = p->green;       b = p->blue; }
             if (a > 1e-6f) { r /= a; g /= a; b /= a; } else { r = g = b = 0.f; }      // AE buffers are premultiplied
-            o[0] = r; o[1] = g; o[2] = b; o[3] = a;
+            o[0] = majeed::clampf(r, 0.f, 1.f);
+            o[1] = majeed::clampf(g, 0.f, 1.f);
+            o[2] = majeed::clampf(b, 0.f, 1.f);
+            o[3] = majeed::clampf(a, 0.f, 1.f);
         }
     }
 }
@@ -272,12 +278,15 @@ inline PF_Err RenderWorlds(PF_InData* in_data, PF_OutData* out_data, const Effec
     majeed::FrameCtx ctx;
     ctx.timeSec = in_data->time_scale ? (double)in_data->current_time / (double)in_data->time_scale : 0.0;
     ctx.fps     = in_data->time_step > 0 ? (double)in_data->time_scale / (double)in_data->time_step : 24.0;
-    const double sx = in_data->downsample_x.num ? (double)in_data->downsample_x.den / (double)in_data->downsample_x.num : 1.0;
-    const double sy = in_data->downsample_y.num ? (double)in_data->downsample_y.den / (double)in_data->downsample_y.num : 1.0;
+    const double sx = (in_data->downsample_x.num > 0 && in_data->downsample_x.den > 0)
+                    ? (double)in_data->downsample_x.den / (double)in_data->downsample_x.num : 1.0;
+    const double sy = (in_data->downsample_y.num > 0 && in_data->downsample_y.den > 0)
+                    ? (double)in_data->downsample_y.den / (double)in_data->downsample_y.num : 1.0;
     ctx.scaleX = sx; ctx.scaleY = sy;
     ctx.originX = 0; ctx.originY = 0;
-    ctx.fullW = (double)in_data->width  * sx;
-    ctx.fullH = (double)in_data->height * sy;
+    // in_data->width and in_data->height are already the full-resolution layer dimensions in AE SDK
+    ctx.fullW = in_data->width > 0 ? (double)in_data->width : (double)inW->width * sx;
+    ctx.fullH = in_data->height > 0 ? (double)in_data->height : (double)inW->height * sy;
     if (in_data->pixel_aspect_ratio.den)
         ctx.pixelAspect = (double)in_data->pixel_aspect_ratio.num / (double)in_data->pixel_aspect_ratio.den;
 
@@ -317,7 +326,7 @@ inline PF_Err Dispatch(PF_Cmd cmd, PF_InData* in_data, PF_OutData* out_data, PF_
     switch (cmd) {
     case PF_Cmd_ABOUT:
         if (in_data && in_data->utils && in_data->utils->ansi.sprintf && out_data) {
-            PF_SPRINTF(out_data->return_msg, "%s\rMAJEED native engine.\r%s", d.name, d.about);
+            PF_SPRINTF(out_data->return_msg, "%s\rYMDithers Native Engine.\r%s", d.name, d.about);
         }
         break;
     case PF_Cmd_GLOBAL_SETUP:     err = GlobalSetup(in_data, out_data, d); break;
