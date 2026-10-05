@@ -1,6 +1,8 @@
 {
   "name": "YMDithers Studio",
-  "description": "Professional Adobe After Effects Plugin & Interactive Visual Suite for Dithering, Film Grain, VHS, NTSC, and Procedural Lines.",
-  "permissions": [],
-  "capabilities": []
+  "description": "Professional retro-dithering, halftone rasterization & contour lines studio with 49 native algorithms, CMYK separation, tonal multi-color mapping, and palette quantization.",
+  "prompt": "Professional retro-dithering, halftone rasterization & contour lines studio with 49 native algorithms, CMYK separation, tonal multi-color mapping, and palette quantization.",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

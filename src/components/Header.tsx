@@ -1,65 +1,155 @@
 import React from 'react';
-import { Download, Sparkles, HelpCircle, Layers, CheckCircle2 } from 'lucide-react';
+import { 
+  Download, 
+  HelpCircle, 
+  RotateCcw, 
+  Image as ImageIcon,
+  Zap
+} from 'lucide-react';
+import { SAMPLE_IMAGES } from '../data/sampleImages';
+import { STUDIO_STYLE_PRESETS, StudioStylePreset } from '../data/palettes';
+import { LOGO_DATA_URL } from '../assets/logoDataUrl';
 
-interface Props {
-  onOpenInstall: () => void;
+interface HeaderProps {
+  currentSampleId: string;
+  onSelectSample: (id: string) => void;
+  onApplyPreset: (preset: StudioStylePreset) => void;
+  onResetParams: () => void;
+  onOpenExport: () => void;
+  onOpenInfo: () => void;
+  onFileUpload: (file: File) => void;
+  renderTimeMs: number;
 }
 
-export const Header: React.FC<Props> = ({ onOpenInstall }) => {
+export const Header: React.FC<HeaderProps> = ({
+  currentSampleId,
+  onSelectSample,
+  onApplyPreset,
+  onResetParams,
+  onOpenExport,
+  onOpenInfo,
+  onFileUpload,
+  renderTimeMs,
+}) => {
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
   return (
-    <header className="h-16 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-40">
-      {/* Brand */}
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 text-white font-black text-sm">
-          YM
+    <header className="h-14 bg-[#111317] border-b border-[#21242d] px-4 flex items-center justify-between z-20 shrink-0 select-none">
+      {/* Brand & Project Logo */}
+      <div className="flex items-center space-x-3">
+        <div className="h-9 px-1 bg-[#0b0c0e] rounded border border-[#2b303c] flex items-center justify-center shadow-md overflow-hidden">
+          <img 
+            src={LOGO_DATA_URL} 
+            alt="YMDithers Logo" 
+            className="h-7 w-auto object-contain image-rendering-pixelated"
+          />
         </div>
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="font-bold text-zinc-100 text-sm tracking-tight flex items-center gap-1.5">
-              YMDithers Studio
-            </h1>
-            <span className="px-1.5 py-0.5 text-[9px] font-mono font-semibold uppercase bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded">
-              v2.0 AEX
+          <div className="flex items-center space-x-2">
+            <span className="font-bold tracking-wider text-sm text-white font-mono">
+              YMDithers
+            </span>
+            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold tracking-wide">
+              PRO
             </span>
           </div>
-          <p className="text-[11px] text-zinc-400">After Effects Plugin & Interactive Suite</p>
+          <span className="text-[10px] text-gray-500 tracking-wide font-mono hidden sm:inline-block">
+            49 Native Algorithms • Dither & Contour Lines
+          </span>
         </div>
       </div>
 
-      {/* Stats pill */}
-      <div className="hidden md:flex items-center gap-4 text-xs text-zinc-400">
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800">
-          <Layers className="w-3.5 h-3.5 text-indigo-400" />
-          <span><strong className="text-zinc-200">49</strong> Dither Algos</span>
-        </div>
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800">
-          <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-          <span><strong className="text-zinc-200">4-64mm</strong> Film Emulsion</span>
-        </div>
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/40 border border-emerald-800/40 text-emerald-400">
-          <CheckCircle2 className="w-3.5 h-3.5" />
-          <span>Tests Passing 100%</span>
-        </div>
-      </div>
-
-      {/* Actions */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onOpenInstall}
-          className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent hover:border-zinc-800 rounded-lg flex items-center gap-1.5 transition-colors"
+      {/* Center Toolset: Sample picker, Style presets & Upload */}
+      <div className="flex items-center space-x-2">
+        {/* Sample Image dropdown */}
+        <select
+          value={currentSampleId}
+          onChange={(e) => onSelectSample(e.target.value)}
+          className="bg-[#181b22] hover:bg-[#20242e] text-xs text-gray-200 border border-[#2b303c] rounded px-2.5 py-1.5 font-mono cursor-pointer focus:outline-none focus:border-emerald-500 transition-colors"
         >
-          <HelpCircle className="w-4 h-4" />
-          <span>Install Guide</span>
+          <option value="custom" disabled>Custom Uploaded</option>
+          {SAMPLE_IMAGES.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name} ({s.category})
+            </option>
+          ))}
+        </select>
+
+        {/* Upload Button */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files && e.target.files[0]) {
+              onFileUpload(e.target.files[0]);
+            }
+          }}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          title="Upload your own image (PNG, JPG, WebP)"
+          className="flex items-center space-x-1.5 bg-[#181b22] hover:bg-[#20242e] text-xs text-gray-300 border border-[#2b303c] rounded px-2.5 py-1.5 font-mono cursor-pointer transition-colors"
+        >
+          <ImageIcon className="w-3.5 h-3.5 text-emerald-400" />
+          <span className="hidden md:inline">Open Image</span>
         </button>
 
-        <a
-          href="/YMDithers.aex"
-          download="YMDithers.aex"
-          className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg flex items-center gap-2 shadow-lg shadow-indigo-600/25 transition-all active:scale-95"
+        {/* Quick Style Presets Menu */}
+        <select
+          defaultValue=""
+          onChange={(e) => {
+            const p = STUDIO_STYLE_PRESETS.find((x) => x.id === e.target.value);
+            if (p) onApplyPreset(p);
+            e.target.value = '';
+          }}
+          className="bg-[#181b22] hover:bg-[#20242e] text-xs text-gray-200 border border-[#2b303c] rounded px-2.5 py-1.5 font-mono cursor-pointer focus:outline-none focus:border-emerald-500 transition-colors"
         >
-          <Download className="w-4 h-4" />
-          <span>Download .AEX</span>
-        </a>
+          <option value="" disabled>
+            ⚡ Presets...
+          </option>
+          {STUDIO_STYLE_PRESETS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name} [{p.category}]
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Right Actions: Benchmark, Reset, Info, Export */}
+      <div className="flex items-center space-x-2">
+        <div 
+          className="hidden lg:flex items-center space-x-1.5 px-2 py-1 bg-[#14171e] border border-[#222733] rounded text-[11px] font-mono text-gray-400"
+          title="Engine Render Latency"
+        >
+          <Zap className="w-3 h-3 text-emerald-400" />
+          <span>{renderTimeMs.toFixed(1)} ms</span>
+        </div>
+
+        <button
+          onClick={onResetParams}
+          title="Reset to default settings"
+          className="p-1.5 rounded bg-[#181b22] hover:bg-[#222733] text-gray-400 hover:text-gray-200 border border-[#2b303c] transition-colors cursor-pointer"
+        >
+          <RotateCcw className="w-4 h-4" />
+        </button>
+
+        <button
+          onClick={onOpenInfo}
+          title="Documentation & Reference"
+          className="p-1.5 rounded bg-[#181b22] hover:bg-[#222733] text-gray-400 hover:text-gray-200 border border-[#2b303c] transition-colors cursor-pointer"
+        >
+          <HelpCircle className="w-4 h-4" />
+        </button>
+
+        <button
+          onClick={onOpenExport}
+          className="flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-semibold px-3 py-1.5 rounded shadow-md shadow-emerald-950/40 border border-emerald-400/40 transition-colors cursor-pointer"
+        >
+          <Download className="w-3.5 h-3.5" />
+          <span>Export</span>
+        </button>
       </div>
     </header>
   );

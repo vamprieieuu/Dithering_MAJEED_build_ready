@@ -16,7 +16,7 @@ using namespace majeed;
 #define YMDITHERS_LIST(F,K,P,C,A,G,E) \
  G(DM_G_DITHER,"Dither") \
  P(DM_ALGO,"Algorithm",MJ_DITHER_ALGO_POPUP,MJ_DITHER_ALGO_COUNT,17) \
- P(DM_MODE,"Color Mode","Preserve Original Colors|Monochrome (B&W)|Custom Duo-Tone",3,2) \
+ P(DM_MODE,"Color Mode","Preserve Original Colors|Monochrome (B&W)",2,2) \
  F(DM_DITHER,"Amount (Dot Density)",0,100,0,100,100,1) \
  F(DM_WHITE_AMT,"White Amount (%)",0,100,0,100,100,1) \
  F(DM_BLACK_AMT,"Black Amount (%)",0,100,0,100,100,1) \
