@@ -53,158 +53,241 @@ void extract_object_contours(const Image& src, float threshold, float sensitivit
     const int W = src.w, H = src.h;
     if (W < 6 || H < 6) return;
 
-    // A. Luminance extraction
+    // A. Luminance + Alpha + Chrominance extraction (handles alpha cutouts & chromatic edges)
     std::vector<float> luma((size_t)W * H, 0.f);
+    std::vector<float> alpha((size_t)W * H, 0.f);
+    std::vector<float> r_ch((size_t)W * H, 0.f);
+    std::vector<float> g_ch((size_t)W * H, 0.f);
+    std::vector<float> b_ch((size_t)W * H, 0.f);
     for (int y = 0; y < H; ++y) {
         for (int x = 0; x < W; ++x) {
             const float* p = src.at(x, y);
-            luma[(size_t)y * W + x] = luma709(p[0], p[1], p[2]);
+            const float a = clampf(p[3], 0.f, 1.f);
+            const size_t idx = (size_t)y * W + x;
+            // Weight RGB by alpha so transparent cutout boundaries have crisp luminance gradients
+            r_ch[idx] = p[0] * a;
+            g_ch[idx] = p[1] * a;
+            b_ch[idx] = p[2] * a;
+            luma[idx] = luma709(r_ch[idx], g_ch[idx], b_ch[idx]);
+            alpha[idx] = a;
         }
     }
 
     // B. Separable 3x3 Gaussian smoothing to suppress sensor/noise specks
-    std::vector<float> smooth((size_t)W * H, 0.f);
-    for (int y = 1; y < H - 1; ++y) {
-        for (int x = 1; x < W - 1; ++x) {
-            float s = 4.f * luma[(size_t)y * W + x]
-                    + 2.f * (luma[(size_t)y * W + (x - 1)] + luma[(size_t)y * W + (x + 1)]
-                           + luma[(size_t)(y - 1) * W + x] + luma[(size_t)(y + 1) * W + x])
-                    + 1.f * (luma[(size_t)(y - 1) * W + (x - 1)] + luma[(size_t)(y - 1) * W + (x + 1)]
-                           + luma[(size_t)(y + 1) * W + (x - 1)] + luma[(size_t)(y + 1) * W + (x + 1)]);
-            smooth[(size_t)y * W + x] = s * (1.f / 16.f);
+    auto smooth3x3 = [&](const std::vector<float>& in, std::vector<float>& out) {
+        for (int y = 0; y < H; ++y) {
+            int ym = std::max(0, y - 1), yp = std::min(H - 1, y + 1);
+            for (int x = 0; x < W; ++x) {
+                int xm = std::max(0, x - 1), xp = std::min(W - 1, x + 1);
+                float s = 4.f * in[(size_t)y * W + x]
+                        + 2.f * (in[(size_t)y * W + xm] + in[(size_t)y * W + xp]
+                               + in[(size_t)ym * W + x] + in[(size_t)yp * W + x])
+                        + 1.f * (in[(size_t)ym * W + xm] + in[(size_t)ym * W + xp]
+                               + in[(size_t)yp * W + xm] + in[(size_t)yp * W + xp]);
+                out[(size_t)y * W + x] = s * (1.f / 16.f);
+            }
         }
-    }
+    };
 
-    // C. Sobel Gradients & Magnitudes
+    std::vector<float> smooth((size_t)W * H, 0.f);
+    std::vector<float> smoothA((size_t)W * H, 0.f);
+    smooth3x3(luma, smooth);
+    smooth3x3(alpha, smoothA);
+
+    // C. Sobel Gradients & Magnitudes (combining luminance, alpha silhouette, and RGB color edges)
     std::vector<float> gx_buf((size_t)W * H, 0.f);
     std::vector<float> gy_buf((size_t)W * H, 0.f);
     std::vector<float> mag_buf((size_t)W * H, 0.f);
     const float gain = std::max(0.4f, sensitivity / 45.f);
+    float maxMag = 0.f;
+
+    auto sobelAt = [&](const std::vector<float>& buf, int x, int y, float& gx, float& gy) {
+        float tl = buf[(size_t)(y - 1) * W + (x - 1)], t = buf[(size_t)(y - 1) * W + x], tr = buf[(size_t)(y - 1) * W + (x + 1)];
+        float l  = buf[(size_t)y * W + (x - 1)],                                        r  = buf[(size_t)y * W + (x + 1)];
+        float bl = buf[(size_t)(y + 1) * W + (x - 1)], b = buf[(size_t)(y + 1) * W + x], br = buf[(size_t)(y + 1) * W + (x + 1)];
+        gx = (tr + 2.f * r + br) - (tl + 2.f * l + bl);
+        gy = (bl + 2.f * b + br) - (tl + 2.f * t + tr);
+    };
 
     for (int y = 1; y < H - 1; ++y) {
         for (int x = 1; x < W - 1; ++x) {
-            float tl = smooth[(size_t)(y - 1) * W + (x - 1)], t = smooth[(size_t)(y - 1) * W + x], tr = smooth[(size_t)(y - 1) * W + (x + 1)];
-            float l  = smooth[(size_t)y * W + (x - 1)],                                            r  = smooth[(size_t)y * W + (x + 1)];
-            float bl = smooth[(size_t)(y + 1) * W + (x - 1)], b = smooth[(size_t)(y + 1) * W + x], br = smooth[(size_t)(y + 1) * W + (x + 1)];
+            float gxL, gyL, gxA, gyA, gxR, gyR, gxG, gyG, gxB, gyB;
+            sobelAt(smooth, x, y, gxL, gyL);
+            sobelAt(smoothA, x, y, gxA, gyA);
+            sobelAt(r_ch, x, y, gxR, gyR);
+            sobelAt(g_ch, x, y, gxG, gyG);
+            sobelAt(b_ch, x, y, gxB, gyB);
 
-            float gx = (tr + 2.f * r + br) - (tl + 2.f * l + bl);
-            float gy = (bl + 2.f * b + br) - (tl + 2.f * t + tr);
-            float m = std::sqrt(gx * gx + gy * gy) * gain;
+            float mL = std::hypot(gxL, gyL);
+            float mA = std::hypot(gxA, gyA);
+            float mR = std::hypot(gxR, gyR);
+            float mG = std::hypot(gxG, gyG);
+            float mB = std::hypot(gxB, gyB);
+            float mC = std::max({ mR, mG, mB }) * 0.7f;
+
+            float gx = gxL, gy = gyL, m = mL;
+            if (mA > m) { gx = gxA; gy = gyA; m = mA; }
+            if (mC > m) {
+                if (mR >= mG && mR >= mB) { gx = gxR; gy = gyR; }
+                else if (mG >= mB) { gx = gxG; gy = gyG; }
+                else { gx = gxB; gy = gyB; }
+                m = mC;
+            }
+            m *= gain;
 
             size_t idx = (size_t)y * W + x;
             gx_buf[idx] = gx;
             gy_buf[idx] = gy;
             mag_buf[idx] = m;
+            if (m > maxMag) maxMag = m;
         }
     }
 
-    // D. Non-Maximum Suppression (NMS) to thin gradients to 1-pixel crisp ridges
-    std::vector<float> nms_buf((size_t)W * H, 0.f);
-    const float tHigh = clampf(threshold / 100.f, 0.03f, 0.85f);
-    const float tLow  = tHigh * 0.40f;
+    if (maxMag < 1e-4f) return;
 
-    for (int y = 2; y < H - 2; ++y) {
-        for (int x = 2; x < W - 2; ++x) {
-            size_t idx = (size_t)y * W + x;
-            float m = mag_buf[idx];
-            if (m < tLow) continue;
+    // D. Non-Maximum Suppression (NMS) + Hysteresis Contour Tracing
+    auto run_nms_and_trace = [&](float tHigh, float tLow, int minNodes, float minLen) {
+        contours.clear();
+        std::vector<float> nms_buf((size_t)W * H, 0.f);
 
-            float gx = gx_buf[idx];
-            float gy = gy_buf[idx];
-            float absGx = std::fabs(gx);
-            float absGy = std::fabs(gy);
+        for (int y = 2; y < H - 2; ++y) {
+            for (int x = 2; x < W - 2; ++x) {
+                size_t idx = (size_t)y * W + x;
+                float m = mag_buf[idx];
+                if (m < tLow) continue;
 
-            float n0 = 0.f, n1 = 0.f;
-            // 4 directional sectors
-            if (absGx > absGy * 2.4142f) {
-                // Horizontal normal -> compare East / West
-                n0 = mag_buf[idx - 1];
-                n1 = mag_buf[idx + 1];
-            } else if (absGy > absGx * 2.4142f) {
-                // Vertical normal -> compare North / South
-                n0 = mag_buf[idx - W];
-                n1 = mag_buf[idx + W];
-            } else if ((gx > 0 && gy > 0) || (gx < 0 && gy < 0)) {
-                // 45 deg diagonal -> compare NE / SW
-                n0 = mag_buf[idx - W - 1];
-                n1 = mag_buf[idx + W + 1];
-            } else {
-                // 135 deg diagonal -> compare NW / SE
-                n0 = mag_buf[idx - W + 1];
-                n1 = mag_buf[idx + W - 1];
-            }
+                float gx = gx_buf[idx];
+                float gy = gy_buf[idx];
+                float absGx = std::fabs(gx);
+                float absGy = std::fabs(gy);
 
-            if (m >= n0 && m >= n1) {
-                nms_buf[idx] = m;
-            }
-        }
-    }
-
-    // E. Connected Contour Tracing (Hysteresis Linking)
-    std::vector<uint8_t> visited((size_t)W * H, 0);
-    static const int dx8[8] = { 1,  1,  0, -1, -1, -1,  0,  1 };
-    static const int dy8[8] = { 0,  1,  1,  1,  0, -1, -1, -1 };
-
-    contours.reserve(std::min(maxContours, 2048));
-
-    for (int y = 2; y < H - 2; ++y) {
-        for (int x = 2; x < W - 2; ++x) {
-            size_t startIdx = (size_t)y * W + x;
-            if (visited[startIdx] || nms_buf[startIdx] < tHigh) continue;
-
-            // Trace new contour chain
-            ContourChain chain;
-            int cx = x, cy = y;
-            visited[startIdx] = 1;
-
-            float cumLen = 0.f;
-            float prevX = (float)cx, prevY = (float)cy;
-
-            while (true) {
-                size_t curIdx = (size_t)cy * W + cx;
-                float gx = gx_buf[curIdx], gy = gy_buf[curIdx];
-                float invL = 1.f / std::max(1e-5f, std::sqrt(gx * gx + gy * gy));
-                float nx = gx * invL, ny = gy * invL;
-                float tx = -ny, ty = nx;
-
-                if (!chain.nodes.empty()) {
-                    cumLen += std::hypot((float)cx - prevX, (float)cy - prevY);
-                    prevX = (float)cx;
-                    prevY = (float)cy;
+                float n0 = 0.f, n1 = 0.f;
+                // 4 directional sectors (gy grows downward, so gx*gy > 0 is NW-SE)
+                if (absGx > absGy * 2.4142f) {
+                    // Horizontal normal -> compare West / East
+                    n0 = mag_buf[idx - 1];
+                    n1 = mag_buf[idx + 1];
+                } else if (absGy > absGx * 2.4142f) {
+                    // Vertical normal -> compare North / South
+                    n0 = mag_buf[idx - W];
+                    n1 = mag_buf[idx + W];
+                } else if ((gx > 0 && gy > 0) || (gx < 0 && gy < 0)) {
+                    // 45 deg diagonal -> compare NW / SE
+                    n0 = mag_buf[idx - W - 1];
+                    n1 = mag_buf[idx + W + 1];
+                } else {
+                    // 135 deg diagonal -> compare NE / SW
+                    n0 = mag_buf[idx - W + 1];
+                    n1 = mag_buf[idx + W - 1];
                 }
 
-                chain.nodes.push_back({ (float)cx, (float)cy, nx, ny, tx, ty, cumLen });
-                if (chain.nodes.size() > 4000) break; // guard against runaway loops
+                if (m >= n0 && m >= n1 - 1e-5f) {
+                    nms_buf[idx] = m;
+                }
+            }
+        }
 
-                // Search 8-neighbors for strongest unvisited ridge point
+        // E. Connected Contour Tracing (Bi-directional Hysteresis Linking)
+        std::vector<uint8_t> visited((size_t)W * H, 0);
+        static const int dx8[8] = { 1,  1,  0, -1, -1, -1,  0,  1 };
+        static const int dy8[8] = { 0,  1,  1,  1,  0, -1, -1, -1 };
+
+        contours.reserve(std::min(maxContours, 2048));
+
+        auto trace_half = [&](int startX, int startY, std::vector<std::pair<int, int>>& pts) {
+            int cx = startX, cy = startY;
+            while (pts.size() < 2000) {
                 int nextX = -1, nextY = -1;
                 float bestMag = tLow;
-
                 for (int k = 0; k < 8; ++k) {
                     int nxPos = cx + dx8[k];
                     int nyPos = cy + dy8[k];
                     if (nxPos < 1 || nxPos >= W - 1 || nyPos < 1 || nyPos >= H - 1) continue;
                     size_t nIdx = (size_t)nyPos * W + nxPos;
-                    if (!visited[nIdx] && nms_buf[nIdx] > bestMag) {
+                    if (!visited[nIdx] && nms_buf[nIdx] >= bestMag) {
                         bestMag = nms_buf[nIdx];
                         nextX = nxPos;
                         nextY = nyPos;
                     }
                 }
-
-                if (nextX == -1) break; // end of contour line
+                // Bridge 1-pixel diagonal/quantization gaps along the contour
+                if (nextX == -1) {
+                    for (int dy = -2; dy <= 2; ++dy) {
+                        for (int dx = -2; dx <= 2; ++dx) {
+                            if (std::abs(dx) <= 1 && std::abs(dy) <= 1) continue;
+                            int nxPos = cx + dx;
+                            int nyPos = cy + dy;
+                            if (nxPos < 1 || nxPos >= W - 1 || nyPos < 1 || nyPos >= H - 1) continue;
+                            size_t nIdx = (size_t)nyPos * W + nxPos;
+                            if (!visited[nIdx] && nms_buf[nIdx] >= bestMag) {
+                                bestMag = nms_buf[nIdx];
+                                nextX = nxPos;
+                                nextY = nyPos;
+                            }
+                        }
+                    }
+                }
+                if (nextX == -1) break;
                 cx = nextX;
                 cy = nextY;
                 visited[(size_t)cy * W + cx] = 1;
+                pts.push_back({ cx, cy });
             }
+        };
 
-            // Keep only meaningful contours (ignore tiny noise specks < 8px)
-            if (chain.nodes.size() >= 8 && cumLen >= 6.f) {
-                chain.totalLength = cumLen;
-                contours.push_back(std::move(chain));
-                if ((int)contours.size() >= maxContours) return;
+        for (int y = 2; y < H - 2; ++y) {
+            for (int x = 2; x < W - 2; ++x) {
+                size_t startIdx = (size_t)y * W + x;
+                if (visited[startIdx] || nms_buf[startIdx] < tHigh) continue;
+
+                visited[startIdx] = 1;
+                std::vector<std::pair<int, int>> fwd, bwd;
+                trace_half(x, y, fwd);
+                trace_half(x, y, bwd);
+
+                std::vector<std::pair<int, int>> ordered;
+                ordered.reserve(bwd.size() + 1 + fwd.size());
+                for (auto it = bwd.rbegin(); it != bwd.rend(); ++it) ordered.push_back(*it);
+                ordered.push_back({ x, y });
+                for (const auto& p : fwd) ordered.push_back(p);
+
+                ContourChain chain;
+                chain.nodes.reserve(ordered.size());
+                float cumLen = 0.f;
+                float prevX = (float)ordered[0].first, prevY = (float)ordered[0].second;
+
+                for (size_t i = 0; i < ordered.size(); ++i) {
+                    int cx = ordered[i].first, cy = ordered[i].second;
+                    size_t curIdx = (size_t)cy * W + cx;
+                    float gx = gx_buf[curIdx], gy = gy_buf[curIdx];
+                    float invL = 1.f / std::max(1e-5f, std::hypot(gx, gy));
+                    float nx = gx * invL, ny = gy * invL;
+                    float tx = -ny, ty = nx;
+
+                    if (i > 0) {
+                        cumLen += std::hypot((float)cx - prevX, (float)cy - prevY);
+                        prevX = (float)cx;
+                        prevY = (float)cy;
+                    }
+                    chain.nodes.push_back({ (float)cx, (float)cy, nx, ny, tx, ty, cumLen });
+                }
+
+                if ((int)chain.nodes.size() >= minNodes && cumLen >= minLen) {
+                    chain.totalLength = cumLen;
+                    contours.push_back(std::move(chain));
+                    if ((int)contours.size() >= maxContours) return;
+                }
             }
         }
+    };
+
+    const float baseHigh = clampf(threshold / 100.f, 0.03f, 0.85f);
+    const float effHigh = std::min(baseHigh, std::max(0.02f, maxMag * 0.55f));
+    run_nms_and_trace(effHigh, effHigh * 0.35f, 5, 4.f);
+
+    if (contours.empty()) {
+        const float fallbackHigh = std::max(0.01f, maxMag * 0.25f);
+        run_nms_and_trace(fallbackHigh, fallbackHigh * 0.25f, 3, 2.f);
     }
 }
 
@@ -275,8 +358,9 @@ void render_lines(const Image& src, const Image& dst, const LinesParams& p, cons
     // BRANCH A: OBJECT ON -> Contour Following (Zero Gap)
     // =======================================================================
     if (p.objectMode) {
+        const Image& edgeSrc = (p.edgeRef && p.edgeRef->px && p.edgeRef->w == W && p.edgeRef->h == H) ? *p.edgeRef : src;
         std::vector<ContourChain> contours;
-        extract_object_contours(src, (float)p.edgeThreshold, (float)p.edgeSensitivity, contours, 2048);
+        extract_object_contours(edgeSrc, (float)p.edgeThreshold, (float)p.edgeSensitivity, contours, 2048);
 
         if (!contours.empty()) {
             // Compute cumulative length table for proportional sampling
@@ -304,11 +388,11 @@ void render_lines(const Image& src, const Image& dst, const LinesParams& p, cons
                 auto it = std::lower_bound(cumLengths.begin(), cumLengths.end(), rPick);
                 size_t cIdx = (it == cumLengths.end()) ? contours.size() - 1 : std::distance(cumLengths.begin(), it);
                 const ContourChain& chain = contours[cIdx];
-                if (chain.totalLength < 3.f) continue;
+                if (chain.totalLength < 2.f) continue;
 
                 // Length & thickness
                 float strandL = baseLen * (1.f + (rnd(2) * 2.f - 1.f) * lenRnd);
-                strandL = std::max(4.f, std::min(strandL, chain.totalLength * 0.95f));
+                strandL = std::max(3.f, std::min(strandL, chain.totalLength));
                 float strandThick = baseThick * (1.f + (rnd(3) * 2.f - 1.f) * thkRnd);
                 strandThick = clampf(strandThick, 0.2f, 15.f);
 
@@ -327,9 +411,15 @@ void render_lines(const Image& src, const Image& dst, const LinesParams& p, cons
                 if (p.colorMode == LCM_SAMPLED) {
                     float ex, ey, enx, eny, etx, ety;
                     evaluate_contour(chain, s0, ex, ey, enx, eny, etx, ety);
-                    int sx = std::max(0, std::min(W - 1, (int)std::floor(ex)));
-                    int sy = std::max(0, std::min(H - 1, (int)std::floor(ey)));
-                    const float* sc = src.at(sx, sy);
+                    // Sample slightly toward interior along -normal so cutout edges don't sample transparent black
+                    int sx = std::max(0, std::min(W - 1, (int)std::floor(ex - enx * 1.5f)));
+                    int sy = std::max(0, std::min(H - 1, (int)std::floor(ey - eny * 1.5f)));
+                    const float* sc = edgeSrc.at(sx, sy);
+                    if (sc[3] < 0.1f) {
+                        sx = std::max(0, std::min(W - 1, (int)std::floor(ex + enx * 1.5f)));
+                        sy = std::max(0, std::min(H - 1, (int)std::floor(ey + eny * 1.5f)));
+                        sc = edgeSrc.at(sx, sy);
+                    }
                     strandCol[0] = sc[0]; strandCol[1] = sc[1]; strandCol[2] = sc[2];
                 } else if (p.colorMode == LCM_RANDOM) {
                     strandCol[0] = rnd(6); strandCol[1] = rnd(7); strandCol[2] = rnd(8);
@@ -560,9 +650,15 @@ void render_lines(const Image& src, const Image& dst, const LinesParams& p, cons
 
                     if (blendA > 1e-4f) {
                         float* o = dst.at(x, y);
-                        o[0] = lerpf(o[0], blendR, blendA);
-                        o[1] = lerpf(o[1], blendG, blendA);
-                        o[2] = lerpf(o[2], blendB, blendA);
+                        // Straight-alpha Porter-Duff Over composite so lines on transparent boundaries remain visible
+                        float baseA = clampf(o[3], 0.f, 1.f);
+                        float finalA = blendA + baseA * (1.f - blendA);
+                        if (finalA > 1e-5f) {
+                            o[0] = (blendR * blendA + o[0] * baseA * (1.f - blendA)) / finalA;
+                            o[1] = (blendG * blendA + o[1] * baseA * (1.f - blendA)) / finalA;
+                            o[2] = (blendB * blendA + o[2] * baseA * (1.f - blendA)) / finalA;
+                            o[3] = finalA;
+                        }
                     }
                 }
             }

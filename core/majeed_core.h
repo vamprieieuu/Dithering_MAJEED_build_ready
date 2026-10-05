@@ -276,6 +276,7 @@ struct LinesParams {
     double edgeSpread = 0;          // Default 0 for strict adhesion to contour
     double edgeOffset = 0.0;        // Small user offset (px, default 0 = directly on contour)
     int    edgeDirection = LED_ALONG; // 0: Along Edge, 1: Perpendicular, 2: Random, 3: Custom Angle
+    const Image* edgeRef = nullptr; // Optional clean source reference for contour extraction
 
     // Hand Made Lines
     bool   handMade = true;         // [ ] Hand Made Lines checkbox

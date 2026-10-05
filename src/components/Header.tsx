@@ -68,7 +68,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-sm tracking-wide text-zinc-100">YMDithers</span>
+              <span className="font-bold text-sm tracking-wide text-zinc-100">YMDithers 🇮🇶</span>
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-medium">
                 49 ALGOS
               </span>

@@ -143,6 +143,7 @@ static void unified_render(const Image& src, Image& dst, const mj::Vals& v, cons
         lp.edgeSensitivity = v[DM_LN_EDGE_SENS];
         lp.edgeDirection = v.pop(DM_LN_EDGE_DIR);
         lp.edgeOffset = v[DM_LN_EDGE_OFFSET];
+        lp.edgeRef = &src;
 
         // Hand Made Lines
         lp.handMade = v.on(DM_LN_HANDMADE);

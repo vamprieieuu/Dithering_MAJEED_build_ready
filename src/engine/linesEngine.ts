@@ -73,126 +73,160 @@ function extractObjectContours(
 
   const data = srcData.data;
   const luma = new Float32Array(W * H);
+  const alpha = new Float32Array(W * H);
+  const rCh = new Float32Array(W * H);
+  const gCh = new Float32Array(W * H);
+  const bCh = new Float32Array(W * H);
   for (let i = 0; i < W * H; i++) {
     const idx = i * 4;
-    luma[i] = (0.2126 * data[idx] + 0.7152 * data[idx + 1] + 0.0722 * data[idx + 2]) / 255.0;
+    const a = data[idx + 3] / 255.0;
+    const r = (data[idx] / 255.0) * a;
+    const g = (data[idx + 1] / 255.0) * a;
+    const b = (data[idx + 2] / 255.0) * a;
+    rCh[i] = r;
+    gCh[i] = g;
+    bCh[i] = b;
+    luma[i] = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    alpha[i] = a;
   }
 
   // Separable 3x3 Gaussian smoothing
-  const smooth = new Float32Array(W * H);
-  for (let y = 1; y < H - 1; y++) {
-    for (let x = 1; x < W - 1; x++) {
-      const s =
-        4.0 * luma[y * W + x] +
-        2.0 * (luma[y * W + (x - 1)] + luma[y * W + (x + 1)] + luma[(y - 1) * W + x] + luma[(y + 1) * W + x]) +
-        (luma[(y - 1) * W + (x - 1)] + luma[(y - 1) * W + (x + 1)] + luma[(y + 1) * W + (x - 1)] + luma[(y + 1) * W + (x + 1)]);
-      smooth[y * W + x] = s * (1.0 / 16.0);
+  const smooth3x3 = (inp: Float32Array, out: Float32Array) => {
+    for (let y = 0; y < H; y++) {
+      const ym = Math.max(0, y - 1);
+      const yp = Math.min(H - 1, y + 1);
+      for (let x = 0; x < W; x++) {
+        const xm = Math.max(0, x - 1);
+        const xp = Math.min(W - 1, x + 1);
+        const s =
+          4.0 * inp[y * W + x] +
+          2.0 * (inp[y * W + xm] + inp[y * W + xp] + inp[ym * W + x] + inp[yp * W + x]) +
+          (inp[ym * W + xm] + inp[ym * W + xp] + inp[yp * W + xm] + inp[yp * W + xp]);
+        out[y * W + x] = s * (1.0 / 16.0);
+      }
     }
-  }
+  };
+
+  const smooth = new Float32Array(W * H);
+  const smoothA = new Float32Array(W * H);
+  smooth3x3(luma, smooth);
+  smooth3x3(alpha, smoothA);
 
   // Sobel gradients & magnitudes
   const gxBuf = new Float32Array(W * H);
   const gyBuf = new Float32Array(W * H);
   const magBuf = new Float32Array(W * H);
   const gain = Math.max(0.4, sensitivity / 45.0);
+  let maxMag = 0;
+
+  const sobelAt = (buf: Float32Array, x: number, y: number): [number, number] => {
+    const tl = buf[(y - 1) * W + (x - 1)];
+    const t = buf[(y - 1) * W + x];
+    const tr = buf[(y - 1) * W + (x + 1)];
+    const l = buf[y * W + (x - 1)];
+    const r = buf[y * W + (x + 1)];
+    const bl = buf[(y + 1) * W + (x - 1)];
+    const b = buf[(y + 1) * W + x];
+    const br = buf[(y + 1) * W + (x + 1)];
+    const gx = tr + 2.0 * r + br - (tl + 2.0 * l + bl);
+    const gy = bl + 2.0 * b + br - (tl + 2.0 * t + tr);
+    return [gx, gy];
+  };
 
   for (let y = 1; y < H - 1; y++) {
     for (let x = 1; x < W - 1; x++) {
-      const tl = smooth[(y - 1) * W + (x - 1)];
-      const t = smooth[(y - 1) * W + x];
-      const tr = smooth[(y - 1) * W + (x + 1)];
-      const l = smooth[y * W + (x - 1)];
-      const r = smooth[y * W + (x + 1)];
-      const bl = smooth[(y + 1) * W + (x - 1)];
-      const b = smooth[(y + 1) * W + x];
-      const br = smooth[(y + 1) * W + (x + 1)];
+      const [gxL, gyL] = sobelAt(smooth, x, y);
+      const [gxA, gyA] = sobelAt(smoothA, x, y);
+      const [gxR, gyR] = sobelAt(rCh, x, y);
+      const [gxG, gyG] = sobelAt(gCh, x, y);
+      const [gxB, gyB] = sobelAt(bCh, x, y);
 
-      const gx = tr + 2.0 * r + br - (tl + 2.0 * l + bl);
-      const gy = bl + 2.0 * b + br - (tl + 2.0 * t + tr);
-      const m = Math.hypot(gx, gy) * gain;
+      const mL = Math.hypot(gxL, gyL);
+      const mA = Math.hypot(gxA, gyA);
+      const mR = Math.hypot(gxR, gyR);
+      const mG = Math.hypot(gxG, gyG);
+      const mB = Math.hypot(gxB, gyB);
+      const mC = Math.max(mR, mG, mB) * 0.7;
+
+      let gx = gxL;
+      let gy = gyL;
+      let m = mL;
+      if (mA > m) {
+        gx = gxA;
+        gy = gyA;
+        m = mA;
+      }
+      if (mC > m) {
+        if (mR >= mG && mR >= mB) {
+          gx = gxR;
+          gy = gyR;
+        } else if (mG >= mB) {
+          gx = gxG;
+          gy = gyG;
+        } else {
+          gx = gxB;
+          gy = gyB;
+        }
+        m = mC;
+      }
+      m *= gain;
 
       const idx = y * W + x;
       gxBuf[idx] = gx;
       gyBuf[idx] = gy;
       magBuf[idx] = m;
+      if (m > maxMag) maxMag = m;
     }
   }
 
-  // Non-Maximum Suppression (NMS)
-  const nmsBuf = new Float32Array(W * H);
-  const tHigh = clamp(threshold / 100.0, 0.03, 0.85);
-  const tLow = tHigh * 0.4;
+  if (maxMag < 1e-4) return contours;
 
-  for (let y = 2; y < H - 2; y++) {
-    for (let x = 2; x < W - 2; x++) {
-      const idx = y * W + x;
-      const m = magBuf[idx];
-      if (m < tLow) continue;
-
-      const gx = gxBuf[idx];
-      const gy = gyBuf[idx];
-      const absGx = Math.abs(gx);
-      const absGy = Math.abs(gy);
-
-      let n0 = 0;
-      let n1 = 0;
-      if (absGx > absGy * 2.4142) {
-        n0 = magBuf[idx - 1];
-        n1 = magBuf[idx + 1];
-      } else if (absGy > absGx * 2.4142) {
-        n0 = magBuf[idx - W];
-        n1 = magBuf[idx + W];
-      } else if ((gx > 0 && gy > 0) || (gx < 0 && gy < 0)) {
-        n0 = magBuf[idx - W - 1];
-        n1 = magBuf[idx + W + 1];
-      } else {
-        n0 = magBuf[idx - W + 1];
-        n1 = magBuf[idx + W - 1];
-      }
-
-      if (m >= n0 && m >= n1) {
-        nmsBuf[idx] = m;
-      }
-    }
-  }
-
-  // Connected contour tracing (Hysteresis linking)
-  const visited = new Uint8Array(W * H);
   const dx8 = [1, 1, 0, -1, -1, -1, 0, 1];
   const dy8 = [0, 1, 1, 1, 0, -1, -1, -1];
 
-  for (let y = 2; y < H - 2; y++) {
-    for (let x = 2; x < W - 2; x++) {
-      const startIdx = y * W + x;
-      if (visited[startIdx] || nmsBuf[startIdx] < tHigh) continue;
+  const runNmsAndTrace = (tHigh: number, tLow: number, minNodes: number, minLen: number) => {
+    contours.length = 0;
+    const nmsBuf = new Float32Array(W * H);
 
-      const nodes: ContourNode[] = [];
-      let cx = x;
-      let cy = y;
-      visited[startIdx] = 1;
-      let cumLen = 0;
-      let prevX = cx;
-      let prevY = cy;
+    for (let y = 2; y < H - 2; y++) {
+      for (let x = 2; x < W - 2; x++) {
+        const idx = y * W + x;
+        const m = magBuf[idx];
+        if (m < tLow) continue;
 
-      while (true) {
-        const curIdx = cy * W + cx;
-        const gx = gxBuf[curIdx];
-        const gy = gyBuf[curIdx];
-        const invL = 1.0 / Math.max(1e-5, Math.hypot(gx, gy));
-        const nx = gx * invL;
-        const ny = gy * invL;
-        const tx = -ny;
-        const ty = nx;
+        const gx = gxBuf[idx];
+        const gy = gyBuf[idx];
+        const absGx = Math.abs(gx);
+        const absGy = Math.abs(gy);
 
-        if (nodes.length > 0) {
-          cumLen += Math.hypot(cx - prevX, cy - prevY);
-          prevX = cx;
-          prevY = cy;
+        let n0 = 0;
+        let n1 = 0;
+        if (absGx > absGy * 2.4142) {
+          n0 = magBuf[idx - 1];
+          n1 = magBuf[idx + 1];
+        } else if (absGy > absGx * 2.4142) {
+          n0 = magBuf[idx - W];
+          n1 = magBuf[idx + W];
+        } else if ((gx > 0 && gy > 0) || (gx < 0 && gy < 0)) {
+          n0 = magBuf[idx - W - 1];
+          n1 = magBuf[idx + W + 1];
+        } else {
+          n0 = magBuf[idx - W + 1];
+          n1 = magBuf[idx + W - 1];
         }
 
-        nodes.push({ x: cx, y: cy, nx, ny, tx, ty, arcLen: cumLen });
-        if (nodes.length > 4000) break;
+        if (m >= n0 && m >= n1 - 1e-5) {
+          nmsBuf[idx] = m;
+        }
+      }
+    }
 
+    const visited = new Uint8Array(W * H);
+
+    const traceHalf = (startX: number, startY: number, pts: Array<[number, number]>) => {
+      let cx = startX;
+      let cy = startY;
+      while (pts.length < 2000) {
         let nextX = -1;
         let nextY = -1;
         let bestMag = tLow;
@@ -202,10 +236,27 @@ function extractObjectContours(
           const nyPos = cy + dy8[k];
           if (nxPos < 1 || nxPos >= W - 1 || nyPos < 1 || nyPos >= H - 1) continue;
           const nIdx = nyPos * W + nxPos;
-          if (!visited[nIdx] && nmsBuf[nIdx] > bestMag) {
+          if (!visited[nIdx] && nmsBuf[nIdx] >= bestMag) {
             bestMag = nmsBuf[nIdx];
             nextX = nxPos;
             nextY = nyPos;
+          }
+        }
+
+        if (nextX === -1) {
+          for (let dy = -2; dy <= 2; dy++) {
+            for (let dx = -2; dx <= 2; dx++) {
+              if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1) continue;
+              const nxPos = cx + dx;
+              const nyPos = cy + dy;
+              if (nxPos < 1 || nxPos >= W - 1 || nyPos < 1 || nyPos >= H - 1) continue;
+              const nIdx = nyPos * W + nxPos;
+              if (!visited[nIdx] && nmsBuf[nIdx] >= bestMag) {
+                bestMag = nmsBuf[nIdx];
+                nextX = nxPos;
+                nextY = nyPos;
+              }
+            }
           }
         }
 
@@ -213,13 +264,66 @@ function extractObjectContours(
         cx = nextX;
         cy = nextY;
         visited[cy * W + cx] = 1;
+        pts.push([cx, cy]);
       }
+    };
 
-      if (nodes.length >= 8 && cumLen >= 6.0) {
-        contours.push({ nodes, totalLength: cumLen });
-        if (contours.length >= maxContours) return contours;
+    for (let y = 2; y < H - 2; y++) {
+      for (let x = 2; x < W - 2; x++) {
+        const startIdx = y * W + x;
+        if (visited[startIdx] || nmsBuf[startIdx] < tHigh) continue;
+
+        visited[startIdx] = 1;
+        const fwd: Array<[number, number]> = [];
+        const bwd: Array<[number, number]> = [];
+        traceHalf(x, y, fwd);
+        traceHalf(x, y, bwd);
+
+        const ordered: Array<[number, number]> = [];
+        for (let i = bwd.length - 1; i >= 0; i--) ordered.push(bwd[i]);
+        ordered.push([x, y]);
+        for (let i = 0; i < fwd.length; i++) ordered.push(fwd[i]);
+
+        const nodes: ContourNode[] = [];
+        let cumLen = 0;
+        let prevX = ordered[0][0];
+        let prevY = ordered[0][1];
+
+        for (let i = 0; i < ordered.length; i++) {
+          const cx = ordered[i][0];
+          const cy = ordered[i][1];
+          const curIdx = cy * W + cx;
+          const gx = gxBuf[curIdx];
+          const gy = gyBuf[curIdx];
+          const invL = 1.0 / Math.max(1e-5, Math.hypot(gx, gy));
+          const nx = gx * invL;
+          const ny = gy * invL;
+          const tx = -ny;
+          const ty = nx;
+
+          if (i > 0) {
+            cumLen += Math.hypot(cx - prevX, cy - prevY);
+            prevX = cx;
+            prevY = cy;
+          }
+          nodes.push({ x: cx, y: cy, nx, ny, tx, ty, arcLen: cumLen });
+        }
+
+        if (nodes.length >= minNodes && cumLen >= minLen) {
+          contours.push({ nodes, totalLength: cumLen });
+          if (contours.length >= maxContours) return;
+        }
       }
     }
+  };
+
+  const baseHigh = clamp(threshold / 100.0, 0.03, 0.85);
+  const effHigh = Math.min(baseHigh, Math.max(0.02, maxMag * 0.55));
+  runNmsAndTrace(effHigh, effHigh * 0.35, 5, 4.0);
+
+  if (contours.length === 0) {
+    const fallbackHigh = Math.max(0.01, maxMag * 0.25);
+    runNmsAndTrace(fallbackHigh, fallbackHigh * 0.25, 3, 2.0);
   }
 
   return contours;
