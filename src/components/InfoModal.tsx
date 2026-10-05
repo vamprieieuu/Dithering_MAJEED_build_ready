@@ -8,7 +8,7 @@ interface InfoModalProps {
 }
 
 export const InfoModal: React.FC<InfoModalProps> = ({ isOpen, onClose }) => {
-  const [tab, setTab] = useState<'legend' | 'algos' | 'engine'>('legend');
+  const [tab, setTab] = useState<'legend' | 'algos' | 'engine' | 'download'>('legend');
 
   if (!isOpen) return null;
 
@@ -62,6 +62,16 @@ export const InfoModal: React.FC<InfoModalProps> = ({ isOpen, onClose }) => {
             }`}
           >
             Contour & Density Math
+          </button>
+          <button
+            onClick={() => setTab('download')}
+            className={`py-2.5 px-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer ${
+              tab === 'download'
+                ? 'border-emerald-500 text-emerald-400'
+                : 'border-transparent text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            تحميل YMDithers.aex
           </button>
         </div>
 
@@ -144,6 +154,53 @@ export const InfoModal: React.FC<InfoModalProps> = ({ isOpen, onClose }) => {
                 <h4 className="text-emerald-400 font-bold mb-1">Dual-Polarity Dot Density Gating</h4>
                 <p className="text-gray-400">
                   Instead of rendering a uniform dither and applying opacity, candidate dots are evaluated against independent spatial hash thresholds for light dots (White Amount) and dark dots (Black Amount). Non-activated pixels reveal the original image directly.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {tab === 'download' && (
+            <div className="space-y-4 text-xs">
+              <div className="p-4 bg-emerald-950/40 rounded-lg border border-emerald-500/40">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-emerald-400 font-bold text-sm">الملف الثنائي الحقيقي: YMDithers.aex</h4>
+                  <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">287 KB • Ready</span>
+                </div>
+                <p className="text-gray-300 text-xs mb-3">
+                  تم بناء ملف الـ After Effects Plugin الثنائي بنجاح باستخدام CMake و After Effects SDK و MinGW-w64 x64 مع تصدير EffectMain.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href="/YMDithers.aex"
+                    download="YMDithers.aex"
+                    className="inline-flex items-center space-x-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded shadow-lg transition-colors cursor-pointer"
+                  >
+                    <span>تحميل YMDithers.aex مباشرة</span>
+                  </a>
+                  <a
+                    href="/YMDithers_Full_Package.zip"
+                    download="YMDithers_Full_Package.zip"
+                    className="inline-flex items-center space-x-1.5 px-4 py-2 bg-[#1e232e] hover:bg-[#282f3d] text-gray-200 font-bold rounded border border-[#3b4354] transition-colors cursor-pointer"
+                  >
+                    <span>تحميل الحزمة الكاملة (.zip)</span>
+                  </a>
+                </div>
+              </div>
+
+              <div className="p-3 bg-[#161922] rounded-lg border border-[#232733] space-y-2 text-xs">
+                <h5 className="font-bold text-white">مسارات الملف على النظام:</h5>
+                <ul className="list-disc list-inside space-y-1 text-gray-400 font-mono text-[11px]">
+                  <li><code className="text-emerald-400">build/bin/Release/YMDithers.aex</code> (287 KB)</li>
+                  <li><code className="text-emerald-400">dist/YMDithers.aex</code> (287 KB)</li>
+                  <li><code className="text-emerald-400">public/YMDithers.aex</code> (Web Download)</li>
+                </ul>
+                <h5 className="font-bold text-white pt-2">طريقة التثبيت في After Effects:</h5>
+                <p className="text-gray-400 leading-normal">
+                  انسخ ملف <code className="text-emerald-400">YMDithers.aex</code> إلى مجلد البلجنز في Adobe After Effects:
+                  <br />
+                  <code className="text-gray-300 block bg-[#0e1014] p-2 rounded mt-1 font-mono text-[11px]">
+                    C:\Program Files\Adobe\Adobe After Effects &lt;Version&gt;\Support Files\Plug-ins\YMDithers.aex
+                  </code>
                 </p>
               </div>
             </div>

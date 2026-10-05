@@ -234,6 +234,17 @@ export const CanvasViewport: React.FC<CanvasViewportProps> = ({
           </button>
         </div>
 
+        {/* Direct Plugin Download Link */}
+        <a
+          href="/YMDithers.aex"
+          download="YMDithers.aex"
+          className="hidden md:flex items-center space-x-1.5 px-2.5 py-1 rounded bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 hover:text-white hover:bg-emerald-700 text-xs font-mono transition-all shadow-sm"
+          title="Download YMDithers.aex compiled binary (287 KB)"
+        >
+          <Layers className="w-3.5 h-3.5 text-emerald-400" />
+          <span>تحميل YMDithers.aex (287 KB)</span>
+        </a>
+
         <div className="w-[1px] h-4 bg-[#232733]" />
 
         {/* Zoom Controls */}
