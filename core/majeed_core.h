@@ -170,67 +170,38 @@ inline float blend_channel(int mode, float b, float l, float d) {
 }
 
 // =========================================================================
-//  GRAIN  (grain.cpp)
-// =========================================================================
-enum GrainType { GT_GAUSS = 0, GT_CRYSTAL = 1, GT_TAPE = 2, GT_CLUSTER = 3 };
-struct GrainParams {
-    int    type = GT_CRYSTAL;
-    double sizeMm = 16.0;           // 4 .. 64 mm
-    double frameWidthMm = 2400.0;   // physical width the layer width represents
-    double amount = 45, density = 85, contrast = 100, brightness = 0;
-    double sharpness = 40, softness = 35, threshold = 0, distribution = 0, clumping = 18;
-    double fine = 35, coarse = 15, aspect = 100, specks = 0;
-    double shadows = 90, midtones = 100, highlights = 45;
-    double lumaResponse = 85;       // 0 = flat overlay, 100 = authentic film toe/shoulder response
-    double colorResponse = 60;      // chromatic dye-cloud response in Color mode
-    int    seed = 0;
-    double evolutionDeg = 0, evoSpeed = 24; bool smoothEvo = false;
-    bool   autoAnim = true;         // automatic deterministic frame animation without keyframing seed
-    double opacity = 100; int blend = BM_OVERLAY;
-    bool   mono = false;
-    double rgbGrain = 100, redAmt = 100, greenAmt = 100, blueAmt = 100;
-    double colorVar = 15, colorRand = 10, chanVar = 10, saturation = 100;
-    double rgbSep = 0;                       // px offset of R / B grain fields (x)
-    RGB    grainColor = {1, 1, 1}; double colorAmt = 0;  // tint of the grain itself
-    // Tape type only: row structure
-    double rowBleed = 0;                     // vertical bleed between scanline rows (0..100)
-    double rowVar = 40;                      // per-row gain variation (0..100)
-};
-double grain_px_per_mm(const GrainParams& p, const FrameCtx& c);   // mm -> full-res px
-void render_grain(const Image& src, const Image& dst, const GrainParams& p, const FrameCtx& c);
-
-// =========================================================================
-//  LINES & PROCEDURAL HAIR/STRANDS  (lines.cpp)
+//  LINES & PROCEDURAL CONTOUR STRANDS (lines.cpp)
 // =========================================================================
 enum LinesComposite { LC_OVER = 0, LC_ADD, LC_SCREEN, LC_MULTIPLY, LC_TRANSPARENT, LC_ON_BLACK };
 enum LinesColorMode { LCM_SINGLE = 0, LCM_RANDOM = 1, LCM_SAMPLED = 2 };
 enum LinesEdgeDir { LED_ALONG = 0, LED_PERP = 1, LED_RANDOM = 2, LED_CUSTOM = 3 };
 
 struct LinesParams {
-    double amount = 1200;           // Strand count
+    bool   enabled = true;
+    double amount = 600;            // Strand count
     double density = 100;
-    double length = 80;             // Base strand length in px
-    double minLen = 80, maxLen = 600, lengthScale = 100;
-    double lengthRand = 50;         // Length randomness (%)
+    double length = 50;             // Base strand length in px
+    double minLen = 50, maxLen = 150, lengthScale = 100;
+    double lengthRand = 40;         // Length randomness (%)
     double angle = 0;               // Direction angle in degrees
     double angleRand = 180;         // Direction randomness (0..180 deg)
     double horizBias = 30, vertBias = 0, diagBias = 0;
-    double width = 0.8;             // Strand thickness in px
-    double minThick = 0.5, maxThick = 1.2, thickScale = 100;
-    double widthRand = 50;          // Thickness randomness (%)
+    double width = 1.0;             // Strand thickness in px
+    double minThick = 0.5, maxThick = 1.5, thickScale = 100;
+    double widthRand = 30;          // Thickness randomness (%)
     double posRand = 100;           // Position distribution randomness (%)
     double curvature = 12;          // Strand curvature / bend (%)
     double curvRand = 100;          // Curvature randomness (%)
-    int    segments = 3;            // Segments per hair strand for organic flexing
+    int    segments = 4;            // Segments per hair strand for organic flexing
     double kink = 25;               // Kink / angular deflection at joints
     
     // Appearance & Color
-    int    colorMode = LCM_SINGLE;  // 0: Single, 1: Random, 2: Sampled from Image
+    int    colorMode = LCM_SINGLE;  // 0: Single, 1: Sampled from Image, 2: Random
     RGB    color = {1, 1, 1};       // Strand base color
     double colorAmt = 0;            // Color tint amount
-    double colorRand = 30;          // Color variation / jitter (%)
-    double opacity = 85;            // Strand opacity (%)
-    double opacityRand = 40;        // Opacity randomness (%)
+    double colorRand = 0;           // Color variation / jitter (%)
+    double opacity = 90;            // Strand opacity (%)
+    double opacityRand = 25;        // Opacity randomness (%)
     double brightness = 78, brightRand = 35;
     int    composite = LC_OVER;     // Blend mode
     double layerOpacity = 100;      // Master layer opacity (%)
@@ -240,22 +211,35 @@ struct LinesParams {
 
     // Animation
     bool   autoAnim = true;         // Automatic deterministic animation with frame/time
-    double motionAmount = 30;       // Organic sway amplitude (px)
+    double motionAmount = 25;       // Organic sway amplitude (px)
     double motionSpeed = 100;       // Animation speed (%)
     double motionDir = 0;           // Motion direction angle
-    double motionRand = 60;         // Motion phase randomness (%)
+    double motionRand = 50;         // Motion phase randomness (%)
     double evolutionDeg = 0, evoSpeed = 100;
     double lifetime = 6, fade = 35, fadeRand = 50;
     double jitter = 0.6, jitterSpeed = 12;
     int    seed = 1;
     
-    // Object mode (Edge-guided hair/strands)
-    bool   objectMode = false;      // [ ] Object checkbox
-    double edgeThreshold = 30;      // Minimum edge gradient strength to spawn strand (0..100)
-    double edgeSensitivity = 70;    // Edge contrast sensitivity / gain (0..100)
+    // Object mode (Edge-guided contour following - ZERO gap!)
+    bool   objectMode = true;       // [ ] Object checkbox (default ON)
+    double edgeThreshold = 25;      // Edge gradient sensitivity threshold (0..100)
+    double edgeSensitivity = 75;    // Edge contrast gain (0..100)
     double edgeDensity = 80;        // Density of strands along edges (0..100)
-    double edgeSpread = 15;         // Perpendicular scatter distance from edge (px)
+    double edgeSpread = 0;          // Default 0 for strict adhesion to contour
+    double edgeOffset = 0.0;        // Small user offset (px, default 0 = directly on contour)
     int    edgeDirection = LED_ALONG; // 0: Along Edge, 1: Perpendicular, 2: Random, 3: Custom Angle
+
+    // Hand Made Lines
+    bool   handMade = true;         // [ ] Hand Made Lines checkbox
+    double curve = 30;              // Curvature / organic hand-drawn deviation (0..100)
+
+    // Duplicate Lines
+    bool   duplicate = false;       // [ ] Duplicate Lines checkbox
+    int    duplicateCount = 1;      // 1..4 duplicate companion lines
+    double duplicateOffset = 2.5;   // Spacing in pixels hugging the contour
+    double duplicateLength = 90;    // Duplicate length (%)
+    double duplicateWidth = 0.8;    // Duplicate thickness (px)
+    double duplicateOpacity = 75;   // Duplicate opacity (%)
 };
 void render_lines(const Image& src, const Image& dst, const LinesParams& p, const FrameCtx& c);
 
@@ -275,11 +259,15 @@ const DitherAlgoInfo& dither_algo(int i);
 int dither_algo_find(const char* name);   // -1 if not found
 struct DitherParams {
     int    algo = 16;                // default Bayer 4x4 (0-based index 16)
-    int    mode = 0;                 // 0 preserve RGB, 1 monochrome B&W, 2 duo-tone (dark/light), 3 CMYK halftone separation, 4 tonal tritone ramp
+    int    mode = 1;                 // 0: preserve RGB, 1: monochrome B&W, 2: duo-tone
     int    levels = 2;               // tones per channel (2..64)
     double size = 1;                 // dither pixel / pattern scale in full-res px
     double threshold = 50;           // threshold / dot density bias (0..100, 50 = neutral)
-    double amount = 100, strength = 100, contrast = 100, brightness = 0;
+    double amount = 100;             // MASTER DENSITY / COVERAGE (0..100) - controls number of dots!
+    double whiteAmount = 100;        // White dot density in Monochrome mode (0..100)
+    double blackAmount = 100;        // Black dot density in Monochrome mode (0..100)
+    double strength = 100;           // spread / contrast of threshold
+    double contrast = 100, brightness = 0;
     bool   serpentine = true, linear = false, invert = false, preserveAlpha = true;
     bool   pixelate = false;         // Optional pixelation post-dither (default false!)
     bool   animate = false;          // deterministic frame animation for noise/randomness
@@ -289,57 +277,6 @@ struct DitherParams {
     RGB    dark = {0, 0, 0}, light = {1, 1, 1}, mid = {0.5f, 0.5f, 0.5f};
 };
 void render_dither(const Image& src, const Image& dst, const DitherParams& p, const FrameCtx& c);
-
-// =========================================================================
-//  VHS  (vhs.cpp)
-// =========================================================================
-struct VHSParams {
-    double trackAmount = 20, trackSize = 40, trackSpeed = 50, headSwitch = 40, headHeight = 6;
-    double jitterAmount = 15, jitterRate = 100, vertInstability = 10;
-    double bleed = 35, bleedShift = 2.5, lumaSoft = 15;
-    double rSepX = 1.5, bSepX = -1.5;
-    double staticAmount = 35, staticSize = 100;
-    double dashes = 30, dashLength = 100, dashRows = 2;
-    double streaks = 25, streakWidth = 2;
-    double scanlines = 30, scanPeriod = 3, scanSharp = 50, interlace = 35;
-    double flicker = 20;
-    double saturation = 100;
-    double speed = 100; int seed = 0;
-};
-void render_vhs(const Image& src, const Image& dst, const VHSParams& p, const FrameCtx& c);
-
-// =========================================================================
-//  NTSC  (vhs.cpp)
-// =========================================================================
-struct NTSCParams {
-    double chromaBleed = 45;         // YIQ I/Q bandwidth limiting smear (0..100)
-    double dotCrawl = 40;            // 3.58MHz subcarrier dot crawl & rainbow cross-color (0..100)
-    double carrierFreq = 100;        // Subcarrier frequency scale (25..250%)
-    double phaseSkew = 20;           // Horizontal sync phase distortion & line warp (0..100)
-    double ghosting = 25;            // Multipath RF echo / ghosting (0..100)
-    double ghostShift = 12;          // RF ghost offset in pixels (-60..60)
-    double ringing = 30;             // Analog luma overshoot / ringing on sharp edges (0..100)
-    double scanlines = 35;           // NTSC 525-line CRT scanlines (0..100)
-    double scanPitch = 3.0;          // Scanline pitch in pixels (1.5..16)
-    double rfNoise = 20;             // Analog RF snow / carrier noise (0..100)
-    double colorSep = 2.0;           // Chroma delay / Y-C registration offset (px)
-    double speed = 100;              // Automatic temporal animation speed (%)
-    int    seed = 0;
-};
-void render_ntsc(const Image& src, const Image& dst, const NTSCParams& p, const FrameCtx& c);
-
-// =========================================================================
-//  CHANNELS (RGB Chromatic Aberration / Separation) (channels.cpp)
-// =========================================================================
-struct ChannelParams {
-    double sepAmount = 4.0;    // px shift
-    double sepAngle = 0.0;     // degrees
-    int    sepMode = 0;        // 0 = Linear, 1 = Radial
-    double random = 0.0;       // row jitter px
-    double randomRate = 24.0;  // jitter speed fps
-    int    seed = 0;
-};
-void render_channels(const Image& src, const Image& dst, const ChannelParams& p, const FrameCtx& c);
 
 // shared bilinear sampler (edge clamped & bounds-safe)
 inline void sample_bilinear(const Image& im, float x, float y, float* out4) {

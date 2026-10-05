@@ -557,8 +557,37 @@ void render_dither(const Image& src, const Image& dst, const DitherParams& p, co
                         }
                     }
 
+                    // True Dot Density Gating (Amount, White Amount, Black Amount)
+                    // Low Amount reduces the count/coverage of dots, leaving original image pixels in-between.
+                    const float masterCov = clampf((float)(p.amount / 100.0), 0.f, 1.f);
+                    const float whiteCov  = clampf((float)(p.whiteAmount / 100.0), 0.f, 1.f);
+                    const float blackCov  = clampf((float)(p.blackAmount / 100.0), 0.f, 1.f);
+
+                    float prob = masterCov;
+                    uint32_t gateSeed = 0x51A7u;
+                    if (p.mode == 1) { // Monochrome B&W
+                        if (outCh[0] >= 0.5f) {
+                            prob = masterCov * whiteCov;
+                            gateSeed = 0x93E1u;
+                        } else {
+                            prob = masterCov * blackCov;
+                            gateSeed = 0x48D2u;
+                        }
+                    }
+
+                    float gate = u01(hash3((uint32_t)x, (uint32_t)y, seed ^ gateSeed));
                     float* o = dst.at(x, y);
-                    for (int k = 0; k < 3; ++k) o[k] = lerpf(s[k], finalRgb[k], amount);
+                    if (gate < prob) {
+                        // Committed solid dither dot
+                        o[0] = finalRgb[0];
+                        o[1] = finalRgb[1];
+                        o[2] = finalRgb[2];
+                    } else {
+                        // Preserved original source image pixel
+                        o[0] = s[0];
+                        o[1] = s[1];
+                        o[2] = s[2];
+                    }
                     o[3] = s[3];
                 }
             }
@@ -677,7 +706,33 @@ void render_dither(const Image& src, const Image& dst, const DitherParams& p, co
                 }
                 const float* s = src.at(x, y);
                 float* o = dst.at(x, y);
-                for (int k = 0; k < 3; ++k) o[k] = lerpf(s[k], rgb[k], amount);
+
+                const float masterCov = clampf((float)(p.amount / 100.0), 0.f, 1.f);
+                const float whiteCov  = clampf((float)(p.whiteAmount / 100.0), 0.f, 1.f);
+                const float blackCov  = clampf((float)(p.blackAmount / 100.0), 0.f, 1.f);
+
+                float prob = masterCov;
+                uint32_t gateSeed = 0x51A7u;
+                if (p.mode == 1) { // Monochrome B&W
+                    if (v[0] >= 0.5f) {
+                        prob = masterCov * whiteCov;
+                        gateSeed = 0x93E1u;
+                    } else {
+                        prob = masterCov * blackCov;
+                        gateSeed = 0x48D2u;
+                    }
+                }
+
+                float gate = u01(hash3((uint32_t)x, (uint32_t)y, seed ^ gateSeed));
+                if (gate < prob) {
+                    o[0] = rgb[0];
+                    o[1] = rgb[1];
+                    o[2] = rgb[2];
+                } else {
+                    o[0] = s[0];
+                    o[1] = s[1];
+                    o[2] = s[2];
+                }
                 o[3] = s[3];
             }
         }
