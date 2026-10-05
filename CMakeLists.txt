@@ -25,7 +25,7 @@ endif()
 
 enable_language(RC)
 
-add_subdirectory(extern)
+add_subdirectory(extern/AfterEffectsSDK)
 
 set(MAJEED_AE_DIR   "${CMAKE_CURRENT_SOURCE_DIR}/ae")
 set(MAJEED_CORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/core")
@@ -40,11 +40,11 @@ set(PIPLTOOL        "${AESDK_ROOT}/Resources/PiPLtool.exe")
 if(NOT EXISTS "${PIPL_R}")
     message(FATAL_ERROR "PiPL source not found: ${PIPL_R}")
 endif()
-if(NOT EXISTS "${PIPLTOOL}")
-    message(FATAL_ERROR "PiPLtool.exe not found at: ${PIPLTOOL}")
-endif()
 
 if(CMAKE_HOST_WIN32 AND MSVC)
+    if(NOT EXISTS "${PIPLTOOL}")
+        message(FATAL_ERROR "PiPLtool.exe not found at: ${PIPLTOOL}")
+    endif()
     # Adobe's Windows SDK sequence:
     #   cl /EP Majeed_PiPL.r -> .rr
     #   PiPLTool .rr -> .rrc

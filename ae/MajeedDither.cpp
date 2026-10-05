@@ -26,7 +26,7 @@ using namespace majeed;
  P(DM_MODE,"Color Mode","Preserve Original Colors|Monochrome (B&W)|Custom Duo-Tone|CMYK Halftone Separation|Tonal Tri-Tone Ramp",5,1) \
  F(DM_DITHER,"Amount",0,100,0,100,100,1) \
  F(DM_TONES,"Levels (Tones)",2,64,2,32,2,0) \
- F(DM_SIZE,"Scale (Pixel Size)",1,32,1,16,2,0) \
+ F(DM_SIZE,"Scale (Pixel Size)",1,32,1,16,1,0) \
  F(DM_THRESH,"Threshold (Density)",0,100,0,100,50,1) \
  F(DM_SPREAD,"Strength (Spread)",0,200,0,200,100,1) \
  F(DM_PATSCALE,"Pattern Scale (%)",25,400,25,250,100,1) \
@@ -120,6 +120,10 @@ using namespace majeed;
  F(DM_LN_CURV,"Line Curvature",0,100,0,100,12,1) \
  F(DM_LN_OPAC,"Lines Opacity (%)",0,100,0,100,75,1) \
  F(DM_LN_SPD,"Lines Speed (%)",0,200,0,200,100,1) \
+ K(DM_LN_OBJ,"Object / Edge Tracing",0) \
+ F(DM_LN_EDGE_TH,"Edge Threshold",0,100,0,100,30,1) \
+ F(DM_LN_EDGE_SENS,"Edge Sensitivity",0,100,0,100,70,1) \
+ P(DM_LN_EDGE_DIR,"Strand Direction","Along Contour|Perpendicular|Random|Custom",4,1) \
  E(DM_E_CHLINES)
 
 MJ_DEFINE_PARAMS(YMDITHERS_LIST, DITHERING_MAJEED)
@@ -438,6 +442,10 @@ static void unified_render(const Image& src, Image& dst, const mj::Vals& v, cons
         lp.opacity = v[DM_LN_OPAC];
         lp.evoSpeed = v[DM_LN_SPD];
         lp.motionSpeed = v[DM_LN_SPD];
+        lp.objectMode = v.on(DM_LN_OBJ);
+        lp.edgeThreshold = v[DM_LN_EDGE_TH];
+        lp.edgeSensitivity = v[DM_LN_EDGE_SENS];
+        lp.edgeDirection = v.pop(DM_LN_EDGE_DIR);
         lp.seed = (int)v[DM_SEED] + 73;
         render_lines(A, FX, lp, c);
         copy_image(FX, A);

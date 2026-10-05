@@ -6,6 +6,12 @@
 // Target: After Effects 23.2.1 SDK, MSVC / Visual Studio 2022 & MinGW-w64 x64.
 // ============================================================================
 #pragma once
+#ifndef TRUE
+#define TRUE 1
+#endif
+#ifndef FALSE
+#define FALSE 0
+#endif
 #define PF_DEEP_COLOR_AWARE 1
 #include "AEConfig.h"
 #include "entry.h"

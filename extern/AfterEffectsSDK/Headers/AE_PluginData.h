@@ -132,6 +132,12 @@ typedef A_Err (*PluginDataEntryFunctionPtr)(
 
 
 
+#define AE_RESERVED_INFO 8
+
+#define PF_REGISTER_EFFECT_EXT2(IN_PTR, CB, NAME, MATCH_NAME, CATEGORY, RESERVED, ENTRY, URL) \
+    ((CB)((IN_PTR), (const A_u_char*)(NAME), (const A_u_char*)(MATCH_NAME), (const A_u_char*)(CATEGORY), \
+          (const A_u_char*)(ENTRY), (A_long)'eFKT', (A_long)PF_AE_PLUG_IN_VERSION, (A_long)PF_AE_PLUG_IN_SUBVERS, (A_long)(RESERVED), (const A_u_char*)(URL)))
+
 #ifdef __cplusplus
 }		// end extern "C"
 #endif

@@ -1,23 +1,25 @@
 // ============================================================================
 // YMDithers DITHER - 49 distinct native dithering & halftone algorithms.
-//   * Error diffusion: 15 distinct kernels over the image in scan or serpentine
-//     order, with bounded error propagation (immune to overflow/NaN at high spread)
-//     and photocopy edge enhancement for Xerox Grain.
-//   * Ordered dithering: analytic recursive Bayer 2x2 / 4x4 / 8x8 / 16x16,
-//     isotropic Blue Noise, Jimenez Interleaved Gradient Noise, White Noise.
-//   * Halftone & Pattern Screens: 27 geometrically distinct spot functions,
-//     rank-normalised on a symmetric 64x64 phase lattice so tone maps linearly
-//     to dot/line area without directional tie-breaking artefacts.
-//   * Color modes: Preserve RGB, Monochrome B&W, Custom Duo-Tone, CMYK Angled
-//     Halftone Separation, and Tonal Tri-Tone Ramp.
+//   * Error diffusion: 15 distinct kernels (Floyd-Steinberg, Atkinson, Stucki,
+//     Burkes, Sierra, Fan, Shiau-Fan, Skip Neighbours, Xerox Grain, etc.)
+//   * Ordered dithering: Bayer 2x2 / 4x4 / 8x8 / 16x16, isotropic Blue Noise,
+//     Jimenez Interleaved Gradient Noise, White Noise.
+//   * Halftone & Pattern Screens: 27 continuous per-pixel spot functions (Round dot,
+//     Mosaic, Square, Line, Scanline, Engraving, Woodcut, Cyber, Matrix, etc.)
+//     evaluated at full output resolution without coarse block artifacts.
+//   * Color modes: Preserve RGB, Monochrome B&W, Custom Duo-Tone, CMYK Halftone
+//     Separation, and Tonal Tri-Tone Ramp.
 // ============================================================================
 #include "majeed_core.h"
 #include <cstring>
+#include <vector>
+#include <algorithm>
+#include <cmath>
 
 namespace majeed {
 namespace {
 
-// ------------------------------------------------------------ kernels -------
+// ------------------------------------------------------------ error diffusion kernels
 struct Tap { int dx, dy; float w; };
 struct Kernel {
     int ntaps;
@@ -40,7 +42,7 @@ static const Kernel KERNELS[K_COUNT] = {
     { 12, { {1,0,8.f/42.f}, {2,0,4.f/42.f},
             {-2,1,2.f/42.f}, {-1,1,4.f/42.f}, {0,1,8.f/42.f}, {1,1,4.f/42.f}, {2,1,2.f/42.f},
             {-2,2,1.f/42.f}, {-1,2,2.f/42.f}, {0,2,4.f/42.f}, {1,2,2.f/42.f}, {2,2,1.f/42.f} } },
-    // K_ATKINSON: Atkinson (6/8 diffused -> high contrast midtones, clean shadows/highlights)
+    // K_ATKINSON: Atkinson (diffuses 6/8 for clean, high-contrast crispness)
     { 6, { {1,0,1.f/8.f}, {2,0,1.f/8.f}, {-1,1,1.f/8.f}, {0,1,1.f/8.f}, {1,1,1.f/8.f}, {0,2,1.f/8.f} } },
     // K_BURKES: Burkes / 32
     { 7, { {1,0,8.f/32.f}, {2,0,4.f/32.f},
@@ -54,19 +56,19 @@ static const Kernel KERNELS[K_COUNT] = {
            {-2,1,1.f/16.f}, {-1,1,2.f/16.f}, {0,1,3.f/16.f}, {1,1,2.f/16.f}, {2,1,1.f/16.f} } },
     // K_SIERRALITE: Sierra Lite / 4
     { 3, { {1,0,2.f/4.f}, {-1,1,1.f/4.f}, {0,1,1.f/4.f} } },
-    // K_FAN: Fan / 16 (diagonal left bias)
+    // K_FAN: Fan / 16
     { 4, { {1,0,7.f/16.f}, {-2,1,1.f/16.f}, {-1,1,3.f/16.f}, {0,1,5.f/16.f} } },
-    // K_SHIAUFAN: Shiau-Fan 5-tap wide left fan / 16
+    // K_SHIAUFAN: Shiau-Fan / 16
     { 5, { {1,0,8.f/16.f}, {-3,1,1.f/16.f}, {-2,1,1.f/16.f}, {-1,1,2.f/16.f}, {0,1,4.f/16.f} } },
-    // K_SKIP1: Skip Neighbours (2-px stride woven cluster diffusion)
+    // K_SKIP1: Skip Neighbours
     { 4, { {2,0,7.f/16.f}, {-2,2,3.f/16.f}, {0,2,5.f/16.f}, {2,2,1.f/16.f} } },
-    // K_SKIP2: Skip1 Neighbours (3-px stride structured stipple diffusion)
+    // K_SKIP2: Skip1 Neighbours
     { 5, { {3,0,6.f/16.f}, {-3,2,3.f/16.f}, {0,3,4.f/16.f}, {3,2,2.f/16.f}, {0,1,1.f/16.f} } },
-    // K_SKIP3: Skip2 Neighbours (4-px stride cross-weave diffusion)
+    // K_SKIP3: Skip2 Neighbours
     { 5, { {4,0,6.f/16.f}, {-4,3,3.f/16.f}, {0,4,4.f/16.f}, {4,3,2.f/16.f}, {2,1,1.f/16.f} } },
 };
 
-// ------------------------------------------------------------ algorithm table
+// ------------------------------------------------------------ spot functions
 enum Spot {
     S_DOT = 0, S_SQUARE, S_MOSAIC, S_RECT,
     S_LINEH, S_LINEMED, S_LINEHEAVY, S_LINEV,
@@ -130,7 +132,7 @@ static const DitherAlgoInfo ALGOS[] = {
 };
 const int NALGOS = (int)(sizeof(ALGOS) / sizeof(ALGOS[0]));
 
-// ------------------------------------------------ lock-free Bayer & Blue Noise
+// ------------------------------------------------ Bayer & Blue Noise
 inline float bayer_threshold(int x, int y, int n) {
     int bits = (n <= 2) ? 1 : (n <= 4) ? 2 : (n <= 8) ? 3 : 4;
     int mask = (1 << bits) - 1;
@@ -146,39 +148,30 @@ inline float bayer_threshold(int x, int y, int n) {
     return (val + 0.5f) / (float)total;
 }
 
-// High-frequency isotropic Blue Noise threshold in (0, 1) without static locks or stalls.
-// Combines Roberts R2 low-discrepancy quasi-random sequence with high-pass filtered
-// multi-tap energy relaxation on a 64x64 toroidal lattice.
 inline float blue_noise_threshold(int x, int y, uint32_t seed) {
     int ux = ((x % 64) + 64) % 64;
     int uy = ((y % 64) + 64) % 64;
     auto cell_r2 = [&](int cx, int cy) -> float {
         cx = (cx + 64) & 63;
         cy = (cy + 64) & 63;
-        // R2 quasi-random base + local hash permutation
         double q = cx * 0.7548776662466927 + cy * 0.5698402909980532;
         float r2 = (float)(q - std::floor(q));
         float h = u01(hash3((uint32_t)cx, (uint32_t)cy, seed ^ 0xB10E64u));
         return 0.65f * r2 + 0.35f * h;
     };
     float c0 = cell_r2(ux, uy);
-    // Subtract local 3x3 low-frequency average to shape spectrum into blue noise (high-pass)
     float neigh = 0.f;
     neigh += cell_r2(ux - 1, uy) + cell_r2(ux + 1, uy) + cell_r2(ux, uy - 1) + cell_r2(ux, uy + 1);
     neigh += 0.707f * (cell_r2(ux - 1, uy - 1) + cell_r2(ux + 1, uy - 1) + cell_r2(ux - 1, uy + 1) + cell_r2(ux + 1, uy + 1));
     neigh /= 6.828f;
-    // Map high-pass difference (c0 - neigh) in [-1, 1] through uniform CDF approximation
     float hp = (c0 - neigh) * 2.65f;
     float cdf = 0.5f + 0.5f * std::tanh(hp * 1.15f);
-    // Blend with fine R2 rank so histogram is strictly flat in (0, 1)
     float u = c0 + 0.5f * (c0 - neigh);
     u -= std::floor(u);
     return clampf(0.55f * cdf + 0.45f * u, 0.001f, 0.999f);
 }
 
-// ------------------------------------------------ spot functions (27 screens)
-// Returns distance-from-dark-core value in [0, 1+].
-// (fu, fv) in [0, 1) within each cell, (pu, pv) in {0, 1} checker cell indices.
+// ------------------------------------------------ continuous spot functions (27 screens)
 float spot(int id, float fu, float fv, int pu, int pv) {
     int par = (pu + pv) & 1;
     float du = fu - 0.5f, dv = fv - 0.5f;
@@ -187,7 +180,6 @@ float spot(int id, float fu, float fv, int pu, int pv) {
 
     switch (id) {
     case S_DOT: {
-        // Classic Euclidean halftone dot (inverted phase on checker so highlights & shadows form clean dots)
         float d1 = std::sqrt(du * du + dv * dv);
         float c2u = (fu < 0.5f ? fu + 0.5f : fu - 0.5f) - 0.5f;
         float c2v = (fv < 0.5f ? fv + 0.5f : fv - 0.5f) - 0.5f;
@@ -198,59 +190,47 @@ float spot(int id, float fu, float fv, int pu, int pv) {
         return std::max(std::fabs(du), std::fabs(dv)) * 2.f;
 
     case S_MOSAIC: {
-        // Beveled cushion tile with mortar border groove
         float bx = std::fabs(du) * 2.f, by = std::fabs(dv) * 2.f;
         float edge = std::max(bx, by);
         float dome = std::sqrt(du * du + dv * dv) * 1.4f;
         return edge > 0.82f ? 0.95f + (edge - 0.82f) : 0.45f * edge + 0.55f * dome;
     }
     case S_RECT: {
-        // Staggered 2:1 brick pattern (odd rows shifted by 0.5 cell)
         float bu = frac1(fu + (pv ? 0.5f : 0.f)) - 0.5f;
         return std::max(std::fabs(bu) * 1.5f, std::fabs(dv) * 2.4f);
     }
     case S_LINEH:
-        // Crisp horizontal scanlines with subtle horizontal micro-tie-breaker for smooth PWM width
         return std::fabs(dv) * 2.f + 0.04f * tri(fu);
 
     case S_LINEMED: {
-        // Slot-mask CRT horizontal lines with staggered vertical slot bridges
         float su = frac1(fu + (pv ? 0.5f : 0.f));
         float bridge = su > 0.82f ? 0.32f * (su - 0.82f) / 0.18f : 0.f;
         return std::fabs(dv) * 1.85f + bridge;
     }
     case S_LINEHEAVY: {
-        // Bold horizontal bars with sawtooth edge modulation
         float wave = 0.14f * (tri(fu * 2.f) - 0.5f);
         return std::fabs(dv + wave) * 1.8f;
     }
     case S_LINEV:
-        // Crisp vertical aperture grille bars
         return std::fabs(du) * 2.f + 0.04f * tri(fv);
 
     case S_DIAG:
-        // +45 degree engraving lines (continuous across cell boundaries)
         return std::fabs(frac1((fu + pu + fv + pv) * 0.5f) - 0.5f) * 2.f;
 
     case S_DIAG2: {
-        // -45 degree stepped bit-slash with pixel notch modulation
         float slash = std::fabs(frac1((fu + pu - (fv + pv)) * 0.5f) - 0.5f) * 2.f;
         float notch = 0.15f * tri((fu + pu + fv + pv) * 1.5f);
         return slash * 0.88f + notch;
     }
     case S_HATCH: {
-        // True woodcut cross-hatching: primary +45 hatch for light/midtones, secondary -45 hatch for shadows
         float d1 = std::fabs(frac1((fu + pu + fv + pv) * 0.5f) - 0.5f) * 2.f;
         float d2 = std::fabs(frac1((fu + pu - (fv + pv)) * 0.5f) - 0.5f) * 2.f;
         return d1 < 0.45f ? d1 * 1.1f : 0.5f + 0.5f * std::min(d1, d2);
     }
-    case S_GRID: {
-        // Orthogonal wireframe mesh (dark lines along cell borders, expanding inward)
-        float border = std::min(std::min(fu, 1.f - fu), std::min(fv, 1.f - fv)) * 2.f;
-        return border;
-    }
+    case S_GRID:
+        return std::min(std::min(fu, 1.f - fu), std::min(fv, 1.f - fv)) * 2.f;
+
     case S_CYBER: {
-        // Cyberpunk octagonal tech cell + corner node vias + center diamond
         float ax = std::fabs(du) * 2.f, ay = std::fabs(dv) * 2.f;
         float oct = std::max(std::max(ax, ay), (ax + ay) * 0.72f);
         float ring = std::fabs(oct - 0.68f) * 2.2f;
@@ -258,34 +238,28 @@ float spot(int id, float fu, float fv, int pu, int pv) {
         return std::min(ring, core + 0.25f);
     }
     case S_CROSS: {
-        // Expanding Maltese / plus cross cluster
         float arm = std::min(std::fabs(du), std::fabs(dv)) * 2.4f;
         float span = std::max(std::fabs(du), std::fabs(dv)) * 0.65f;
         return arm + span;
     }
     case S_DIAMOND:
-        // Manhattan diamond
         return (std::fabs(du) + std::fabs(dv));
 
     case S_STAR: {
-        // Concave 4-pointed astroid star
         float a = std::pow(std::fabs(du) + 1e-4f, 0.55f) + std::pow(std::fabs(dv) + 1e-4f, 0.55f);
         return a * a * 0.85f;
     }
     case S_WAVE: {
-        // Sinusoidal FM wave lines
         float u2 = (fu + pu) * 0.5f;
         float w = 0.28f * std::sin(6.2831853f * u2);
         return std::fabs(frac1(fv + w) - 0.5f) * 2.f;
     }
     case S_ZIGZAG: {
-        // Sharp chevron herringbone zig-zag
         float u2 = (fu + pu) * 0.5f;
         float z = 0.38f * (tri(u2 * 2.f) - 0.5f);
         return std::fabs(frac1(fv + z) - 0.5f) * 2.f;
     }
     case S_CIRCUIT: {
-        // PCB concentric square traces with alternating parity & diagonal bridge
         float r = std::max(std::fabs(du), std::fabs(dv)) * 2.f;
         float target = par ? 0.32f : 0.68f;
         float trace = std::fabs(r - target) * 2.6f;
@@ -293,32 +267,27 @@ float spot(int id, float fu, float fv, int pu, int pv) {
         return par ? std::min(trace, pad) : trace;
     }
     case S_STITCHV: {
-        // Staggered vertical embroidery stitches
         float sv = frac1(fv + (pu ? 0.5f : 0.f));
         float gap = sv > 0.72f ? (sv - 0.72f) * 2.5f : 0.f;
         return std::fabs(du) * 1.9f + gap;
     }
     case S_STITCHH: {
-        // Staggered horizontal running stitches
         float su = frac1(fu + (pv ? 0.5f : 0.f));
         float gap = su > 0.72f ? (su - 0.72f) * 2.5f : 0.f;
         return std::fabs(dv) * 1.9f + gap;
     }
     case S_CLOCK: {
-        // Concentric radar / pinwheel angular sectors
-        float ang = std::atan2(dv, du) * 0.15915494f + 0.5f; // [0, 1]
+        float ang = std::atan2(dv, du) * 0.15915494f + 0.5f;
         float rad = std::sqrt(du * du + dv * dv) * 1.414f;
         float blades = tri(ang * 4.f + (par ? 0.25f : 0.f) + rad * 0.35f);
         return 0.65f * blades + 0.35f * rad;
     }
     case S_BITHREAD: {
-        // Over-under diagonal twill basketweave
         float d1 = std::fabs(frac1(fu + fv) - 0.5f) * 2.f;
         float d2 = std::fabs(frac1(fu - fv) - 0.5f) * 2.f;
         return par ? (0.75f * d1 + 0.25f * d2) : (0.25f * d1 + 0.75f * d2);
     }
     case S_KNIT: {
-        // V-shaped jersey knit stitch loop
         float vloop = fv + std::fabs(du) * 1.35f - 0.32f;
         float d1 = std::fabs(frac1(vloop) - 0.5f) * 2.f;
         float rib = std::fabs(du) * 0.55f;
@@ -328,8 +297,6 @@ float spot(int id, float fu, float fv, int pu, int pv) {
     return 0.5f;
 }
 
-// Build a 64x64 rank-normalised threshold map over a 2x2 cell tile.
-// Symmetry-preserving tie-breaker guarantees no directional scanline bias.
 struct ScreenMap {
     float T[64 * 64];
 };
@@ -346,7 +313,6 @@ ScreenMap build_screen_map(int id) {
             int pu = (int)u2; if (pu > 1) pu = 1;
             int pv = (int)v2; if (pv > 1) pv = 1;
             float fu = u2 - pu, fv = v2 - pv;
-            // Tiny isotropic hash tie-breaker (1e-5) prevents scanline tie-breaking artefacts
             float tie = (u01(hash3((uint32_t)x, (uint32_t)y, 0x5C8EE4u)) - 0.5f) * 1e-4f;
             raw[y * M + x] = spot(id, fu, fv, pu, pv) + tie;
             order[y * M + x] = y * M + x;
@@ -355,13 +321,12 @@ ScreenMap build_screen_map(int id) {
     std::sort(order, order + M * M, [&](int a, int b) { return raw[a] < raw[b]; });
     const float invN = 1.f / (float)(M * M);
     for (int r = 0; r < M * M; ++r) {
-        sm.T[order[r]] = 1.f - (r + 0.5f) * invN; // core = highest threshold -> turns dark first
+        sm.T[order[r]] = 1.f - (r + 0.5f) * invN;
     }
     return sm;
 }
 
 inline float sample_screen(const ScreenMap& sm, float u2, float v2) {
-    // u2, v2 in [0, 2) tile coordinates -> wrap cleanly into [0, 1) of 64x64 LUT
     float tu = u2 * 0.5f; tu -= std::floor(tu);
     float tv = v2 * 0.5f; tv -= std::floor(tv);
     float fx = clampf(tu * 64.f - 0.5f, 0.f, 63.999f);
@@ -384,7 +349,6 @@ void diffuse_plane(std::vector<float>& pl, int gw, int gh, int kid, bool serp, f
     if (gw <= 0 || gh <= 0) return;
     const Kernel& K = KERNELS[std::max(0, std::min(K_COUNT - 1, kid))];
 
-    // Optional Xerox photocopy high-pass midtone edge boost
     if (xerox && gw > 2 && gh > 2) {
         std::vector<float> orig = pl;
         for (int y = 1; y < gh - 1; ++y) {
@@ -403,7 +367,6 @@ void diffuse_plane(std::vector<float>& pl, int gw, int gh, int kid, bool serp, f
         bool rev = serp && (y & 1);
         for (int i = 0; i < gw; ++i) {
             int x = rev ? gw - 1 - i : i;
-            // Clamp accumulated value to [-0.35, 1.35] so high strength (>100%) never explodes to Inf/NaN
             float v = clampf(pl[(size_t)y * gw + x], -0.35f, 1.35f);
             float t = v;
             if (noise > 0.f) {
@@ -437,10 +400,6 @@ void render_dither(const Image& src, const Image& dst, const DitherParams& p, co
     const int W = src.w, H = src.h;
     const DitherAlgoInfo& A = dither_algo(p.algo);
     const int L = std::max(2, std::min(64, p.levels));
-    const double safeScaleX = c.scaleX > 1e-4 ? c.scaleX : 1.0;
-    const int block = std::max(1, std::min(128, (int)std::floor(std::max(1.0, p.size) / safeScaleX + 0.5)));
-    const int gw = std::max(1, (W + block - 1) / block);
-    const int gh = std::max(1, (H + block - 1) / block);
 
     // Color modes:
     // 0 = Preserve Original Colors (RGB, 3 channels)
@@ -453,29 +412,190 @@ void render_dither(const Image& src, const Image& dst, const DitherParams& p, co
     const float bright = (float)(p.brightness / 100.0);
     const float bias = (float)((50.0 - clampf((float)p.threshold, 0.f, 100.f)) / 50.0 * 0.45);
     const float gam = 2.2f;
+    const float invGam = 1.f / gam;
+    const float spread = clampf((float)(p.strength / 100.0), 0.f, 2.5f);
+    const uint32_t animFrame = p.animate ? (uint32_t)c.frame() : 0u;
+    const uint32_t seed = hash3((uint32_t)p.seed, animFrame, 0xD17E5u);
 
-    // ---- 1. reduce to the dither grid (block average) + pre-process ---------
+    // Scale parameter: Controls the visual scale of dots/patterns.
+    // For screens, pitch is continuously modulated without any coarse block downscaling.
+    // For ordered/error diffusion, scale adjusts the frequency cleanly.
+    const double ditherScale = std::max(1.0, p.size);
+
+    if (A.kind == DK_SCREEN || A.kind == DK_BAYER || A.kind == DK_BLUE || A.kind == DK_IGN || A.kind == DK_WHITE) {
+        // Continuous full-resolution evaluation: ZERO large block artifacts!
+        ScreenMap sm;
+        float pitch = 6.f;
+        if (A.kind == DK_SCREEN) {
+            sm = build_screen_map(A.param);
+            pitch = (float)std::max(1.0, A.cell * ditherScale * std::max(10.0, p.patternScale) / 100.0);
+        }
+        const int bayN = std::max(2, A.param);
+        const float nz = (float)(p.noise / 100.0);
+
+        static const double cmykAngles[4] = { 15.0, 75.0, 0.0, 45.0 };
+        float cosCh[4], sinCh[4];
+        for (int k = 0; k < nch; ++k) {
+            double angDeg = A.angle + p.patternAngle + (nch == 4 ? cmykAngles[k] : 0.0);
+            float rad = (float)(angDeg * 0.017453292519943295);
+            cosCh[k] = std::cos(rad);
+            sinCh[k] = std::sin(rad);
+        }
+
+        const float amount = clampf((float)(p.amount / 100.0), 0.f, 1.f);
+        parallel_rows(H, [&](int y0, int y1) {
+            for (int y = y0; y < y1; ++y) {
+                for (int x = 0; x < W; ++x) {
+                    const float* s = src.at(x, y);
+                    float rgbIn[3];
+                    for (int k = 0; k < 3; ++k) {
+                        float t = (s[k] - 0.5f) * contrast + 0.5f + bright;
+                        if (p.invert) t = 1.f - t;
+                        t = clampf(t, 0.f, 1.f);
+                        if (p.linear) t = std::pow(t, gam);
+                        rgbIn[k] = t;
+                    }
+
+                    float chVal[4] = { 0.f, 0.f, 0.f, 0.f };
+                    if (nch == 1) {
+                        chVal[0] = luma709(rgbIn[0], rgbIn[1], rgbIn[2]);
+                    } else if (nch == 3) {
+                        chVal[0] = rgbIn[0]; chVal[1] = rgbIn[1]; chVal[2] = rgbIn[2];
+                    } else {
+                        // CMYK separation
+                        float kInk = 1.f - std::max(rgbIn[0], std::max(rgbIn[1], rgbIn[2]));
+                        float invOneMinusK = (1.f - kInk) > 1e-5f ? 1.f / (1.f - kInk) : 0.f;
+                        float cInk = (1.f - rgbIn[0] - kInk) * invOneMinusK;
+                        float mInk = (1.f - rgbIn[1] - kInk) * invOneMinusK;
+                        float yInk = (1.f - rgbIn[2] - kInk) * invOneMinusK;
+                        chVal[0] = clampf(1.f - cInk, 0.f, 1.f);
+                        chVal[1] = clampf(1.f - mInk, 0.f, 1.f);
+                        chVal[2] = clampf(1.f - yInk, 0.f, 1.f);
+                        chVal[3] = clampf(1.f - kInk, 0.f, 1.f);
+                    }
+
+                    float outCh[4] = { 0.f, 0.f, 0.f, 0.f };
+                    for (int k = 0; k < nch; ++k) {
+                        float T = 0.5f;
+                        uint32_t chSeed = seed + (uint32_t)k * 0x9E37u;
+                        switch (A.kind) {
+                        case DK_BAYER: {
+                            int bx = (int)std::floor((float)x / (float)ditherScale) + (nch == 4 ? k * 3 : 0);
+                            int by = (int)std::floor((float)y / (float)ditherScale) + (nch == 4 ? k * 5 : 0);
+                            T = bayer_threshold(bx, by, bayN);
+                            break;
+                        }
+                        case DK_BLUE: {
+                            int bx = (int)std::floor((float)x / (float)ditherScale) + k * 17;
+                            int by = (int)std::floor((float)y / (float)ditherScale) + k * 29;
+                            T = blue_noise_threshold(bx, by, chSeed);
+                            break;
+                        }
+                        case DK_IGN: {
+                            float f = 0.06711056f * ((x / ditherScale) + k * 11 + animFrame * 7)
+                                    + 0.00583715f * ((y / ditherScale) + k * 19 + animFrame * 13);
+                            f -= std::floor(f);
+                            f *= 52.9829189f;
+                            T = f - std::floor(f);
+                            break;
+                        }
+                        case DK_WHITE: {
+                            int bx = (int)std::floor((float)x / (float)ditherScale);
+                            int by = (int)std::floor((float)y / (float)ditherScale);
+                            T = u01(hash3((uint32_t)bx, (uint32_t)by, chSeed));
+                            break;
+                        }
+                        case DK_SCREEN: {
+                            float xs = (float)x + 0.5f, ys = (float)y + 0.5f;
+                            float u2 = (xs * cosCh[k] + ys * sinCh[k]) / pitch;
+                            float v2 = (-xs * sinCh[k] + ys * cosCh[k]) / pitch;
+                            T = sample_screen(sm, u2, v2);
+                            break;
+                        }
+                        default:
+                            break;
+                        }
+
+                        if (nz > 0.f) {
+                            T = clampf(T + (u01(hash3((uint32_t)x, (uint32_t)y, chSeed ^ 0x5A5Au)) - 0.5f) * nz, 0.f, 1.f);
+                        }
+                        T = clampf(0.5f + (T - 0.5f) * spread, 0.001f, 0.999f);
+                        float val = clampf(chVal[k] + bias, 0.f, 1.f);
+                        float scaled = val * (L - 1);
+                        float q = std::floor(scaled + T);
+                        float res = clampf(q / (float)(L - 1), 0.f, 1.f);
+                        if (p.linear) res = std::pow(res, invGam);
+                        outCh[k] = res;
+                    }
+
+                    float finalRgb[3];
+                    if (p.mode == 0) {
+                        finalRgb[0] = outCh[0]; finalRgb[1] = outCh[1]; finalRgb[2] = outCh[2];
+                    } else if (p.mode == 1) {
+                        finalRgb[0] = finalRgb[1] = finalRgb[2] = outCh[0];
+                    } else if (p.mode == 2) {
+                        finalRgb[0] = lerpf(p.dark.r, p.light.r, outCh[0]);
+                        finalRgb[1] = lerpf(p.dark.g, p.light.g, outCh[0]);
+                        finalRgb[2] = lerpf(p.dark.b, p.light.b, outCh[0]);
+                    } else if (p.mode == 3) {
+                        float kMul = outCh[3];
+                        finalRgb[0] = clampf(outCh[0] * kMul, 0.f, 1.f);
+                        finalRgb[1] = clampf(outCh[1] * kMul, 0.f, 1.f);
+                        finalRgb[2] = clampf(outCh[2] * kMul, 0.f, 1.f);
+                    } else {
+                        float l = outCh[0];
+                        if (l < 0.5f) {
+                            float t = l * 2.f;
+                            finalRgb[0] = lerpf(p.dark.r, p.mid.r, t);
+                            finalRgb[1] = lerpf(p.dark.g, p.mid.g, t);
+                            finalRgb[2] = lerpf(p.dark.b, p.mid.b, t);
+                        } else {
+                            float t = (l - 0.5f) * 2.f;
+                            finalRgb[0] = lerpf(p.mid.r, p.light.r, t);
+                            finalRgb[1] = lerpf(p.mid.g, p.light.g, t);
+                            finalRgb[2] = lerpf(p.mid.b, p.light.b, t);
+                        }
+                    }
+
+                    float* o = dst.at(x, y);
+                    for (int k = 0; k < 3; ++k) o[k] = lerpf(s[k], finalRgb[k], amount);
+                    o[3] = s[3];
+                }
+            }
+        });
+        return;
+    }
+
+    // ---------------- Error Diffusion Algorithms ----------------
+    // Run pure full-res pixel-by-pixel error diffusion across all pixels (zero ugly blocks).
+    // Only downsample into discrete pixel-art blocks if pixelate is explicitly enabled.
+    const int block = (p.pixelate && ditherScale > 1.0) ? std::max(1, (int)std::floor(ditherScale + 0.5)) : 1;
+    const int gw = std::max(1, (W + block - 1) / block);
+    const int gh = std::max(1, (H + block - 1) / block);
+
     std::vector<std::vector<float>> pl(nch, std::vector<float>((size_t)gw * gh, 0.f));
     parallel_rows(gh, [&](int y0, int y1) {
         for (int gy = y0; gy < y1; ++gy) {
             for (int gx = 0; gx < gw; ++gx) {
-                double acc[3] = { 0, 0, 0 };
-                int cnt = 0;
-                int xStart = gx * block, yStart = gy * block;
-                int xe = std::min(W, xStart + block), ye = std::min(H, yStart + block);
-                for (int y = yStart; y < ye; ++y) {
-                    for (int x = xStart; x < xe; ++x) {
-                        const float* s = src.at(x, y);
-                        acc[0] += s[0]; acc[1] += s[1]; acc[2] += s[2];
-                        ++cnt;
+                float r = 0, g = 0, b = 0;
+                if (block <= 1) {
+                    const float* s = src.at(gx, gy);
+                    r = s[0]; g = s[1]; b = s[2];
+                } else {
+                    double acc[3] = { 0, 0, 0 }; int cnt = 0;
+                    int xStart = gx * block, yStart = gy * block;
+                    int xe = std::min(W, xStart + block), ye = std::min(H, yStart + block);
+                    for (int y = yStart; y < ye; ++y) {
+                        for (int x = xStart; x < xe; ++x) {
+                            const float* s = src.at(x, y);
+                            acc[0] += s[0]; acc[1] += s[1]; acc[2] += s[2];
+                            ++cnt;
+                        }
                     }
+                    float invCnt = cnt > 0 ? (float)(1.0 / cnt) : 0.f;
+                    r = (float)acc[0] * invCnt; g = (float)acc[1] * invCnt; b = (float)acc[2] * invCnt;
                 }
-                float invCnt = cnt > 0 ? (float)(1.0 / cnt) : 0.f;
-                float r = (float)acc[0] * invCnt;
-                float g = (float)acc[1] * invCnt;
-                float b = (float)acc[2] * invCnt;
 
-                // Apply contrast, brightness, invert, gamma in RGB before channel extraction
                 float rgb[3] = { r, g, b };
                 for (int k = 0; k < 3; ++k) {
                     float t = (rgb[k] - 0.5f) * contrast + 0.5f + bright;
@@ -492,7 +612,6 @@ void render_dither(const Image& src, const Image& dst, const DitherParams& p, co
                     pl[1][(size_t)gy * gw + gx] = rgb[1];
                     pl[2][(size_t)gy * gw + gx] = rgb[2];
                 } else {
-                    // CMYK separation (store 1 - ink so 0 = full ink, 1 = paper white)
                     float kInk = 1.f - std::max(rgb[0], std::max(rgb[1], rgb[2]));
                     float invOneMinusK = (1.f - kInk) > 1e-5f ? 1.f / (1.f - kInk) : 0.f;
                     float cInk = (1.f - rgb[0] - kInk) * invOneMinusK;
@@ -507,90 +626,15 @@ void render_dither(const Image& src, const Image& dst, const DitherParams& p, co
         }
     });
 
-    // ---- 2. quantise / dither -----------------------------------------------
-    const float spread = clampf((float)(p.strength / 100.0), 0.f, 2.f);
-    const uint32_t animFrame = p.animate ? (uint32_t)c.frame() : 0u;
-    const uint32_t seed = hash3((uint32_t)p.seed, animFrame, 0xD17E5u);
-
-    if (A.kind == DK_ERROR) {
-        int kid = A.param & 255;
-        bool serp = p.serpentine || ((A.param & F_SERP) != 0);
-        bool xerox = (A.param & F_XEROX) != 0;
-        float noise = (float)(p.noise / 100.0) + ((A.param & F_NOISE) ? 0.55f : 0.f);
-        // Process channels sequentially or in safe bounded threads
-        for (int k = 0; k < nch; ++k) {
-            diffuse_plane(pl[k], gw, gh, kid, serp, spread, noise, bias, seed + (uint32_t)k * 193u, L, xerox);
-        }
-    } else {
-        ScreenMap sm;
-        float pitch = 6.f;
-        if (A.kind == DK_SCREEN) {
-            sm = build_screen_map(A.param);
-            pitch = (float)std::max(2.0, A.cell * std::max(20.0, p.patternScale) / 100.0);
-        }
-        const int bayN = std::max(2, A.param);
-        const float nz = (float)(p.noise / 100.0);
-
-        // CMYK traditional halftone angles (+15, +75, 0, +45 deg) when in CMYK mode
-        static const double cmykAngles[4] = { 15.0, 75.0, 0.0, 45.0 };
-        float cosCh[4], sinCh[4];
-        for (int k = 0; k < nch; ++k) {
-            double angDeg = A.angle + p.patternAngle + (nch == 4 ? cmykAngles[k] : 0.0);
-            float rad = (float)(angDeg * 0.017453292519943295);
-            cosCh[k] = std::cos(rad);
-            sinCh[k] = std::sin(rad);
-        }
-
-        parallel_rows(gh, [&](int y0, int y1) {
-            for (int y = y0; y < y1; ++y) {
-                for (int x = 0; x < gw; ++x) {
-                    for (int k = 0; k < nch; ++k) {
-                        float T = 0.5f;
-                        uint32_t chSeed = seed + (uint32_t)k * 0x9E37u;
-                        switch (A.kind) {
-                        case DK_BAYER:
-                            T = bayer_threshold(x + (nch == 4 ? k * 3 : 0), y + (nch == 4 ? k * 5 : 0), bayN);
-                            break;
-                        case DK_BLUE:
-                            T = blue_noise_threshold(x + k * 17, y + k * 29, chSeed);
-                            break;
-                        case DK_IGN: {
-                            float f = 0.06711056f * (x + k * 11 + animFrame * 7) + 0.00583715f * (y + k * 19 + animFrame * 13);
-                            f -= std::floor(f);
-                            f *= 52.9829189f;
-                            T = f - std::floor(f);
-                            break;
-                        }
-                        case DK_WHITE:
-                            T = u01(hash3((uint32_t)x, (uint32_t)y, chSeed));
-                            break;
-                        case DK_SCREEN: {
-                            float xs = x + 0.5f, ys = y + 0.5f;
-                            float u2 = (xs * cosCh[k] + ys * sinCh[k]) / pitch;
-                            float v2 = (-xs * sinCh[k] + ys * cosCh[k]) / pitch;
-                            T = sample_screen(sm, u2, v2);
-                            break;
-                        }
-                        default:
-                            break;
-                        }
-                        if (nz > 0.f) {
-                            T = clampf(T + (u01(hash3((uint32_t)x, (uint32_t)y, chSeed ^ 0x5A5Au)) - 0.5f) * nz, 0.f, 1.f);
-                        }
-                        T = clampf(0.5f + (T - 0.5f) * spread, 0.001f, 0.999f);
-                        float val = clampf(pl[k][(size_t)y * gw + x] + bias, 0.f, 1.f);
-                        float scaled = val * (L - 1);
-                        float q = std::floor(scaled + T);
-                        pl[k][(size_t)y * gw + x] = clampf(q / (float)(L - 1), 0.f, 1.f);
-                    }
-                }
-            }
-        });
+    int kid = A.param & 255;
+    bool serp = p.serpentine || ((A.param & F_SERP) != 0);
+    bool xerox = (A.param & F_XEROX) != 0;
+    float noise = (float)(p.noise / 100.0) + ((A.param & F_NOISE) ? 0.55f : 0.f);
+    for (int k = 0; k < nch; ++k) {
+        diffuse_plane(pl[k], gw, gh, kid, serp, spread, noise, bias, seed + (uint32_t)k * 193u, L, xerox);
     }
 
-    // ---- 3. write back ------------------------------------------------------
     const float amount = clampf((float)(p.amount / 100.0), 0.f, 1.f);
-    const float invGam = 1.f / gam;
     parallel_rows(H, [&](int y0, int y1) {
         for (int y = y0; y < y1; ++y) {
             int gy = std::min(gh - 1, y / block);
@@ -613,13 +657,11 @@ void render_dither(const Image& src, const Image& dst, const DitherParams& p, co
                     rgb[1] = lerpf(p.dark.g, p.light.g, v[0]);
                     rgb[2] = lerpf(p.dark.b, p.light.b, v[0]);
                 } else if (p.mode == 3) {
-                    // Recombine CMYK plates -> RGB
                     float kMul = v[3];
                     rgb[0] = clampf(v[0] * kMul, 0.f, 1.f);
                     rgb[1] = clampf(v[1] * kMul, 0.f, 1.f);
                     rgb[2] = clampf(v[2] * kMul, 0.f, 1.f);
                 } else {
-                    // Mode 4: Tonal Tri-Tone Ramp (Shadows -> Midtones -> Highlights)
                     float l = v[0];
                     if (l < 0.5f) {
                         float t = l * 2.f;
@@ -640,7 +682,6 @@ void render_dither(const Image& src, const Image& dst, const DitherParams& p, co
             }
         }
     });
-    (void)p.preserveAlpha;
 }
 
 } // namespace majeed

@@ -53,7 +53,15 @@ using namespace majeed;
  F(LN_MOTRND,"Motion Randomness",0,100,0,100,100,1) \
  F(LN_JITTER,"Jitter Amount (px)",0,50,0,10,0.6,2) \
  F(LN_JITSPD,"Jitter Speed (fps)",0,120,0,60,12,1) \
- E(LN_E_ANIM)
+ E(LN_E_ANIM) \
+ G(LN_G_EDGE,"Object & Edges") \
+ K(LN_OBJECT,"Object Mode (Trace Edges)",0) \
+ F(LN_EDGETHRESH,"Edge Threshold",0,100,0,100,30,1) \
+ F(LN_EDGESENS,"Edge Sensitivity",0,100,0,100,70,1) \
+ F(LN_EDGEDENS,"Edge Density",0,100,0,100,80,1) \
+ F(LN_EDGESPRD,"Edge Scatter (px)",0,100,0,50,15,1) \
+ P(LN_EDGEDIR,"Edge Direction","Along Contours|Perpendicular|Random Angle|Custom Angle",4,1) \
+ E(LN_E_EDGE)
 
 MJ_DEFINE_PARAMS(LINES_LIST, LINES)
 
@@ -69,6 +77,12 @@ static void lines_render(const Image& src, Image& dst, const mj::Vals& v, const 
     p.seed = (int)v[LN_SEED]; p.evolutionDeg = v[LN_EVO]; p.evoSpeed = v[LN_EVOSPEED]; p.lifetime = v[LN_LIFE]; p.fade = v[LN_FADE]; p.fadeRand = v[LN_FADERND];
     p.motionAmount = v[LN_MOTAMT]; p.motionSpeed = v[LN_MOTSPD]; p.motionDir = v[LN_MOTDIR]; p.motionRand = v[LN_MOTRND];
     p.jitter = v[LN_JITTER]; p.jitterSpeed = v[LN_JITSPD];
+    p.objectMode = v.on(LN_OBJECT);
+    p.edgeThreshold = v[LN_EDGETHRESH];
+    p.edgeSensitivity = v[LN_EDGESENS];
+    p.edgeDensity = v[LN_EDGEDENS];
+    p.edgeSpread = v[LN_EDGESPRD];
+    p.edgeDirection = v.pop(LN_EDGEDIR);
     render_lines(src, dst, p, c);
 }
 static const mj::EffectDef LINES_DEF = { "YMDithers Lines", LINES_specs, LINES_COUNT, lines_render,
