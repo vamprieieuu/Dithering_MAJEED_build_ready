@@ -4,7 +4,7 @@ import { BUILT_IN_PRESETS } from '../engine/presets';
 import { DitherSettings } from '../types/dither';
 
 interface HeaderProps {
-  onExport: (format: 'png' | 'jpeg') => void;
+  onOpenExportModal: () => void;
   onReset: () => void;
   onApplyPreset: (presetId: string) => void;
   currentSettings: DitherSettings;
@@ -14,7 +14,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  onExport,
+  onOpenExportModal,
   onReset,
   onApplyPreset,
   compareMode,
@@ -99,11 +99,12 @@ export const Header: React.FC<HeaderProps> = ({
 
         <div className="relative group">
           <button
-            onClick={() => onExport('png')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm hover:shadow transition-all"
+            onClick={onOpenExportModal}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm hover:shadow transition-all"
+            title="Export full resolution image"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Export PNG</span>
+            <span>Export Image</span>
           </button>
         </div>
       </div>

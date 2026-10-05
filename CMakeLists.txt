@@ -72,6 +72,7 @@ target_link_libraries(YMDithers PRIVATE AESDK)
 
 target_compile_definitions(YMDithers PRIVATE MSWindows _WINDOWS WIN32 _CRT_SECURE_NO_WARNINGS)
 if(MSVC)
+    target_compile_definitions(YMDithers PRIVATE _MSC_VER)
     target_compile_options(YMDithers PRIVATE /W3 /EHsc /permissive-)
     target_link_options(YMDithers PRIVATE /SUBSYSTEM:WINDOWS)
 else()

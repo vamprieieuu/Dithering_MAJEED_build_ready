@@ -3,7 +3,10 @@ LANGUAGE 9, 1 // LANG_ENGLISH, SUBLANG_ENGLISH_US
 #pragma code_page(1252)
 #endif
 
-#ifndef _MSC_VER
+// Only embed manifest via RC for MinGW (windres).
+// MSVC link.exe generates and embeds its own isolation-aware manifest (ID 2),
+// so embedding it here under MSVC triggers CVT1100: duplicate resource.
+#if defined(__MINGW32__) && !defined(_MSC_VER)
 2 24 "YMDithers.manifest"
 #endif
 

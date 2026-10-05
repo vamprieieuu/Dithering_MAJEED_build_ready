@@ -3,8 +3,9 @@ import { Header } from './components/Header';
 import { Viewport } from './components/Viewport';
 import { ControlPanel } from './components/ControlPanel';
 import { SampleModal } from './components/SampleModal';
+import { ExportModal } from './components/ExportModal';
 import { DitherSettings } from './types/dither';
-import { processDither, hexToRgb } from './engine/ditherEngine';
+import { processDither, hexToRgb, DITHER_ALGOS } from './engine/ditherEngine';
 import { renderLinesOverlay } from './engine/linesEngine';
 import { SAMPLE_IMAGES, SampleImage } from './engine/samples';
 import { PRESET_PALETTES } from './engine/palettes';
@@ -56,18 +57,23 @@ const DEFAULT_SETTINGS: DitherSettings = {
 
 export const App: React.FC = () => {
   const [settings, setSettings] = useState<DitherSettings>(DEFAULT_SETTINGS);
+  // Full-resolution original image for pristine 1:1 export
+  const [fullResOriginalImage, setFullResOriginalImage] = useState<ImageData | null>(null);
+  // Preview image for interactive viewport
   const [originalImage, setOriginalImage] = useState<ImageData | null>(null);
   const [ditheredImage, setDitheredImage] = useState<ImageData | null>(null);
   const [renderTimeMs, setRenderTimeMs] = useState<number>(0);
   const [compareMode, setCompareMode] = useState<boolean>(false);
   const [sampleModalOpen, setSampleModalOpen] = useState<boolean>(false);
+  const [exportModalOpen, setExportModalOpen] = useState<boolean>(false);
 
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Initialize with high quality sample image on first load
   useEffect(() => {
     const defaultSample = SAMPLE_IMAGES[0];
-    const initialData = defaultSample.generate(480, 480);
+    const initialData = defaultSample.generate(640, 640);
+    setFullResOriginalImage(initialData);
     setOriginalImage(initialData);
   }, []);
 
@@ -78,7 +84,7 @@ export const App: React.FC = () => {
     return colors.map((hex) => hexToRgb(hex));
   }, [settings.selectedPalette]);
 
-  // Re-run dither whenever settings or originalImage updates
+  // Re-run dither for preview whenever settings or preview image updates
   useEffect(() => {
     if (!originalImage) return;
 
@@ -102,34 +108,48 @@ export const App: React.FC = () => {
     }
   }, [originalImage, settings, getActivePaletteRgb]);
 
-  // Handle image file upload
+  // Handle image file upload - preserves 100% full original resolution for export!
   const handleUploadFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        // Clamp maximum resolution to ~1024 to keep responsive interactive FPS
-        let w = img.width;
-        let h = img.height;
-        const maxDim = 900;
-        if (w > maxDim || h > maxDim) {
-          if (w > h) {
-            h = Math.round((h * maxDim) / w);
-            w = maxDim;
+        const fullW = img.naturalWidth || img.width;
+        const fullH = img.naturalHeight || img.height;
+
+        // 1. Store FULL original resolution image data
+        const fullCanvas = document.createElement('canvas');
+        fullCanvas.width = fullW;
+        fullCanvas.height = fullH;
+        const fullCtx = fullCanvas.getContext('2d', { willReadFrequently: true });
+        if (fullCtx) {
+          fullCtx.drawImage(img, 0, 0);
+          const fullImgData = fullCtx.getImageData(0, 0, fullW, fullH);
+          setFullResOriginalImage(fullImgData);
+        }
+
+        // 2. Prepare interactive preview (if full image is very large, downscale for 60fps sliders)
+        const maxPreviewDim = 1200;
+        let prevW = fullW;
+        let prevH = fullH;
+        if (fullW > maxPreviewDim || fullH > maxPreviewDim) {
+          if (fullW > fullH) {
+            prevH = Math.round((fullH * maxPreviewDim) / fullW);
+            prevW = maxPreviewDim;
           } else {
-            w = Math.round((w * maxDim) / h);
-            h = maxDim;
+            prevW = Math.round((fullW * maxPreviewDim) / fullH);
+            prevH = maxPreviewDim;
           }
         }
 
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = w;
-        tempCanvas.height = h;
-        const ctx = tempCanvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, w, h);
-          const imgData = ctx.getImageData(0, 0, w, h);
-          setOriginalImage(imgData);
+        const prevCanvas = document.createElement('canvas');
+        prevCanvas.width = prevW;
+        prevCanvas.height = prevH;
+        const prevCtx = prevCanvas.getContext('2d', { willReadFrequently: true });
+        if (prevCtx) {
+          prevCtx.drawImage(img, 0, 0, prevW, prevH);
+          const prevImgData = prevCtx.getImageData(0, 0, prevW, prevH);
+          setOriginalImage(prevImgData);
         }
       };
       if (e.target?.result) {
@@ -155,36 +175,86 @@ export const App: React.FC = () => {
     setSettings(DEFAULT_SETTINGS);
   };
 
-  // Export high quality canvas download
-  const handleExport = (format: 'png' | 'jpeg') => {
-    if (!ditheredImage) return;
-    const exportCanvas = document.createElement('canvas');
-    exportCanvas.width = ditheredImage.width;
-    exportCanvas.height = ditheredImage.height;
-    const ctx = exportCanvas.getContext('2d');
-    if (!ctx) return;
+  // High-Resolution Image Export
+  // Directly renders the actual full-resolution source image (NOT a screenshot or downsampled preview)
+  const handleExport = async (format: 'png' | 'jpeg', quality: number): Promise<void> => {
+    const targetSource = fullResOriginalImage || originalImage;
+    if (!targetSource) return;
 
-    // Put dithered pixels
-    ctx.putImageData(ditheredImage, 0, 0);
+    return new Promise<void>((resolve, reject) => {
+      try {
+        const fullW = targetSource.width;
+        const fullH = targetSource.height;
 
-    // Draw lines overlay if canvas exists
-    if (settings.enableLines && overlayCanvasRef.current) {
-      ctx.drawImage(overlayCanvasRef.current, 0, 0);
-    }
+        // Process dither at 100% full original resolution
+        const activePalRgb = getActivePaletteRgb();
+        const fullProcessed = processDither(targetSource, settings, activePalRgb);
 
-    const mime = format === 'jpeg' ? 'image/jpeg' : 'image/png';
-    const ext = format === 'jpeg' ? 'jpg' : 'png';
-    const link = document.createElement('a');
-    link.download = `ymdithers_${Date.now()}.${ext}`;
-    link.href = exportCanvas.toDataURL(mime, 0.95);
-    link.click();
+        // Offscreen export canvas
+        const exportCanvas = document.createElement('canvas');
+        exportCanvas.width = fullW;
+        exportCanvas.height = fullH;
+        const ctx = exportCanvas.getContext('2d', { alpha: format === 'png' });
+        if (!ctx) {
+          reject(new Error('Failed to get 2D canvas context'));
+          return;
+        }
+
+        // For JPEG, composite with white background to prevent black alpha matte
+        if (format === 'jpeg') {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, fullW, fullH);
+        }
+
+        // Put the exact full-resolution dithered pixels (preserves Alpha if PNG)
+        ctx.putImageData(fullProcessed, 0, 0);
+
+        // Render lines overlay if enabled at full resolution
+        if (settings.enableLines) {
+          renderLinesOverlay(ctx, targetSource, settings);
+        }
+
+        // Generate download Blob
+        const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+        const fileExt = format === 'jpeg' ? 'jpg' : 'png';
+
+        exportCanvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error('Failed to create image blob'));
+              return;
+            }
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const cleanAlgoName = (DITHER_ALGOS[settings.algo]?.name || 'Dither')
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '_');
+            a.download = `YMDithers_${cleanAlgoName}_${fullW}x${fullH}_${Date.now()}.${fileExt}`;
+            a.href = url;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+            resolve();
+          },
+          mimeType,
+          quality
+        );
+      } catch (err) {
+        reject(err);
+      }
+    });
   };
+
+  const currentAlgo = DITHER_ALGOS[settings.algo] || DITHER_ALGOS[0];
+  const exportW = fullResOriginalImage?.width || originalImage?.width || 0;
+  const exportH = fullResOriginalImage?.height || originalImage?.height || 0;
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#090a0f]">
       {/* Top Application Bar */}
       <Header
-        onExport={handleExport}
+        onOpenExportModal={() => setExportModalOpen(true)}
         onReset={handleReset}
         onApplyPreset={handleApplyPreset}
         currentSettings={settings}
@@ -219,9 +289,21 @@ export const App: React.FC = () => {
         isOpen={sampleModalOpen}
         onClose={() => setSampleModalOpen(false)}
         onSelectSample={(sample) => {
-          const data = sample.generate(480, 480);
+          const data = sample.generate(640, 640);
+          setFullResOriginalImage(data);
           setOriginalImage(data);
         }}
+      />
+
+      {/* High-Resolution Export Modal */}
+      <ExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        onExport={handleExport}
+        imageWidth={exportW}
+        imageHeight={exportH}
+        algoName={currentAlgo.name}
+        colorMode={settings.mode}
       />
     </div>
   );
