@@ -68,6 +68,7 @@ export const App: React.FC = () => {
   const [exportModalOpen, setExportModalOpen] = useState<boolean>(false);
 
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Initialize with high quality sample image on first load
   useEffect(() => {
@@ -255,12 +256,26 @@ export const App: React.FC = () => {
       {/* Top Application Bar */}
       <Header
         onOpenExportModal={() => setExportModalOpen(true)}
+        onUploadClick={() => fileInputRef.current?.click()}
         onReset={handleReset}
         onApplyPreset={handleApplyPreset}
         currentSettings={settings}
         compareMode={compareMode}
         onToggleCompare={() => setCompareMode(!compareMode)}
         onOpenSampleModal={() => setSampleModalOpen(true)}
+      />
+
+      {/* Hidden file input for header upload */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files && e.target.files[0]) {
+            handleUploadFile(e.target.files[0]);
+          }
+        }}
       />
 
       {/* Main Workspace Area */}

@@ -5,6 +5,7 @@ import { DitherSettings } from '../types/dither';
 
 interface HeaderProps {
   onOpenExportModal: () => void;
+  onUploadClick: () => void;
   onReset: () => void;
   onApplyPreset: (presetId: string) => void;
   currentSettings: DitherSettings;
@@ -15,6 +16,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   onOpenExportModal,
+  onUploadClick,
   onReset,
   onApplyPreset,
   compareMode,
@@ -67,46 +69,55 @@ export const Header: React.FC<HeaderProps> = ({
 
       <div className="flex items-center gap-2">
         <button
-          onClick={onOpenSampleModal}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-300 border border-zinc-700/60 transition-colors"
-          title="Choose demo test image"
+          onClick={onUploadClick}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors shadow-sm"
+          title="Upload image to test in Preview"
         >
           <ImageIcon className="w-3.5 h-3.5 text-indigo-400" />
-          <span className="hidden sm:inline">Samples</span>
+          <span>Upload Image</span>
         </button>
+
+        <button
+          onClick={onOpenExportModal}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-colors shadow-sm"
+          title="Export processed image in full original resolution"
+        >
+          <Download className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Export Image</span>
+        </button>
+
+        <a
+          href="/YMDithers.aex"
+          download="YMDithers.aex"
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md hover:shadow-indigo-500/20 transition-all border border-indigo-400/30"
+          title="Download the real native After Effects plugin binary (YMDithers.aex)"
+        >
+          <Layers className="w-3.5 h-3.5 text-indigo-200" />
+          <span>Download YMDithers.aex</span>
+        </a>
+
+        <div className="h-5 w-px bg-zinc-800 mx-1 hidden md:block" />
 
         <button
           onClick={onToggleCompare}
           className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium border transition-colors ${
             compareMode
-              ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300'
+              ? 'bg-amber-500/20 border-amber-500 text-amber-300'
               : 'bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-300 border-zinc-700/60'
           }`}
           title="Toggle Split-Screen Comparison"
         >
           <Eye className="w-3.5 h-3.5 text-amber-400" />
-          <span className="hidden sm:inline">Split Compare</span>
+          <span className="hidden sm:inline">Split</span>
         </button>
 
         <button
           onClick={onReset}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 transition-colors"
+          className="flex items-center gap-1.5 px-2 py-1.5 rounded text-xs font-medium bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 transition-colors"
           title="Reset to default settings"
         >
           <RefreshCw className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Reset</span>
         </button>
-
-        <div className="relative group">
-          <button
-            onClick={onOpenExportModal}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm hover:shadow transition-all"
-            title="Export full resolution image"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export Image</span>
-          </button>
-        </div>
       </div>
     </header>
   );

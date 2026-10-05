@@ -254,7 +254,11 @@ export const Viewport: React.FC<ViewportProps> = ({
       )}
 
       {/* Floating Status Badge (bottom left) */}
-      <div className="absolute bottom-3 left-3 flex items-center gap-2 bg-[#0e1118]/85 border border-zinc-800/80 rounded-md px-2.5 py-1.5 text-[11px] text-zinc-400 backdrop-blur z-20">
+      <div className="absolute bottom-3 left-3 flex items-center gap-2 bg-[#0e1118]/90 border border-zinc-800/80 rounded-md px-2.5 py-1.5 text-[11px] text-zinc-400 backdrop-blur z-20">
+        <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 font-semibold border border-amber-500/30 text-[10px]">
+          INTERACTIVE DEMO
+        </span>
+        <span className="text-zinc-600">•</span>
         <span>{width}×{height}px</span>
         <span className="text-zinc-600">•</span>
         <span className="text-emerald-400 font-medium">{renderTimeMs.toFixed(1)}ms</span>

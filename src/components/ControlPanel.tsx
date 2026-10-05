@@ -233,6 +233,20 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ settings, onChange, 
                   </div>
                 </>
               )}
+
+              {/* Native Plugin Guide */}
+              <div className="p-3 bg-zinc-900/80 rounded border border-zinc-800 text-[11px] space-y-1.5 mt-4">
+                <div className="font-semibold text-zinc-200 flex items-center justify-between">
+                  <span>Adobe After Effects Plugin</span>
+                  <span className="text-[9px] px-1 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono">v23.2.1+</span>
+                </div>
+                <p className="text-zinc-400 text-[10px] leading-relaxed">
+                  Click <strong className="text-indigo-300">Download YMDithers.aex</strong> in the header to get the native 64-bit plugin.
+                </p>
+                <div className="text-[10px] bg-black/40 p-1.5 rounded font-mono text-zinc-300 select-all break-all">
+                  C:\Program Files\Adobe\Common\Plug-ins\7.0\MediaCore\
+                </div>
+              </div>
             </div>
           </div>
         )}
