@@ -28,17 +28,31 @@ export interface LinesParams {
   enabled: boolean;
   amount: number;       // strand count (10..1500)
   length: number;       // base strand length (5..200)
+  lengthRand?: number;  // 0..100%
   width: number;        // thickness in px (0.5..8)
+  widthRand?: number;   // 0..100%
+  angle?: number;       // degrees
+  angleRand?: number;   // degrees
   opacity: number;      // 0..100
-  colorMode: 'single' | 'sampled' | 'random';
+  colorMode: 'single' | 'sampled' | 'random' | 0 | 1 | 2;
   color: string;        // hex color
   objectMode: boolean;  // strictly follow object contours (Sobel/Canny)
   edgeThreshold: number; // 5..90
+  edgeSensitivity?: number; // 10..100
+  edgeDirection?: number;   // 0: Along, 1: Perp, 2: Random, 3: Custom
+  edgeOffset?: number;      // -20..20 px
   handMade: boolean;    // organic hand-drawn deviation
   curve: number;        // curvature (0..100)
   duplicate: boolean;   // companion lines
   duplicateCount: number;
   duplicateOffset: number;
+  duplicateLength?: number;
+  duplicateWidth?: number;
+  duplicateOpacity?: number;
+  autoAnim?: boolean;
+  animSpeed?: number;
+  motionRand?: number;
+  seed?: number;
 }
 
 export interface DitherStudioParams {

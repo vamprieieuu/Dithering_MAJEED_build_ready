@@ -321,6 +321,69 @@ void extract_object_contours(const Image& src, float threshold, float sensitivit
         const float minHigh = std::max(0.003f, maxMag * 0.08f);
         run_nms_and_trace(minHigh, minHigh * 0.25f, 2, 1.5f);
     }
+
+    // Fallback 3: direct streamline / ridge tracer from top gradient peaks
+    // Guarantees rich, connected contours on any non-uniform image
+    if (contours.empty() && maxMag > 1e-4f) {
+        std::vector<std::pair<float, int>> peaks;
+        for (int y = 2; y < H - 2; y += 2) {
+            for (int x = 2; x < W - 2; x += 2) {
+                size_t idx = (size_t)y * W + x;
+                float m = mag_buf[idx];
+                if (m > maxMag * 0.15f) {
+                    peaks.push_back({ m, (int)idx });
+                }
+            }
+        }
+        std::sort(peaks.rbegin(), peaks.rend());
+        std::vector<uint8_t> visited(totalPixels, 0);
+
+        int maxSeeds = std::min((int)peaks.size(), 200);
+        for (int i = 0; i < maxSeeds; ++i) {
+            int seedIdx = peaks[i].second;
+            if (visited[seedIdx]) continue;
+
+            float curX = (float)(seedIdx % W);
+            float curY = (float)(seedIdx / W);
+            ContourChain chain;
+            float cumLen = 0.f;
+
+            for (int dir = -1; dir <= 1; dir += 2) {
+                float px = curX, py = curY;
+                for (int step = 0; step < 60; ++step) {
+                    int ix = std::max(1, std::min(W - 2, (int)std::round(px)));
+                    int iy = std::max(1, std::min(H - 2, (int)std::round(py)));
+                    size_t cIdx = (size_t)iy * W + ix;
+                    visited[cIdx] = 1;
+
+                    float gx = gx_buf[cIdx], gy = gy_buf[cIdx];
+                    float m = std::hypot(gx, gy);
+                    if (m < maxMag * 0.05f) break;
+
+                    float invM = 1.f / m;
+                    float nx = gx * invM, ny = gy * invM;
+                    float tx = -ny * (float)dir, ty = nx * (float)dir;
+
+                    if (step > 0 || dir == 1) {
+                        if (!chain.nodes.empty()) {
+                            cumLen += std::hypot(px - chain.nodes.back().x, py - chain.nodes.back().y);
+                        }
+                        chain.nodes.push_back({ px, py, nx, ny, tx, ty, cumLen });
+                    }
+
+                    px += tx * 1.5f;
+                    py += ty * 1.5f;
+                    if (px < 1.f || px >= W - 2 || py < 1.f || py >= H - 2) break;
+                }
+            }
+
+            if (chain.nodes.size() >= 3 && cumLen > 3.f) {
+                chain.totalLength = cumLen;
+                contours.push_back(std::move(chain));
+                if ((int)contours.size() >= maxContours) break;
+            }
+        }
+    }
 }
 
 // Subpixel continuous point evaluation along a contour chain
@@ -431,17 +494,42 @@ void render_lines(const Image& src, const Image& dst, const LinesParams& p, cons
                     float strandThick = baseThick * (1.f + (rnd(3) * 2.f - 1.f) * thkRnd);
                     strandThick = clampf(strandThick, 0.2f, 15.f);
 
+                    // Check if chain is a closed loop
+                    bool isClosed = false;
+                    if (chain.nodes.size() > 4) {
+                        float dEnd = std::hypot(chain.nodes.front().x - chain.nodes.back().x,
+                                                chain.nodes.front().y - chain.nodes.back().y);
+                        isClosed = (dEnd < 4.0f);
+                    }
+
                     // Start arc-length parameter
                     const float motRandScale = 1.f + (rnd(11) * 2.f - 1.f) * motRand * 0.75f;
-                    float avail = std::max(0.1f, chain.totalLength - strandL);
-                    float baseS = rnd(4) * avail;
-                    float s0 = baseS;
+                    float avail = std::max(0.0f, chain.totalLength - strandL);
+                    float s0 = 0.f;
 
-                    // Requirement 8: Animation progresses strictly ALONG the contour (ZERO detaching!)
-                    if (p.autoAnim) {
-                        float drift = (float)(animTime * 45.0 * motRandScale + rnd(5) * 80.0);
-                        s0 = std::fmod(baseS + drift, chain.totalLength);
-                        if (s0 < 0.f) s0 += chain.totalLength;
+                    if (isClosed) {
+                        float baseS = rnd(4) * chain.totalLength;
+                        s0 = baseS;
+                        if (p.autoAnim) {
+                            float drift = (float)(animTime * 35.0 * motRandScale + rnd(5) * 80.0);
+                            s0 = std::fmod(baseS + drift, chain.totalLength);
+                            if (s0 < 0.f) s0 += chain.totalLength;
+                        }
+                    } else {
+                        if (avail > 0.001f) {
+                            float baseS = rnd(4) * avail;
+                            if (p.autoAnim) {
+                                float drift = (float)(animTime * 35.0 * motRandScale + rnd(5) * 80.0);
+                                float cycle = avail * 2.f;
+                                float t = std::fmod(baseS + drift, cycle);
+                                if (t < 0.f) t += cycle;
+                                s0 = (t > avail) ? (cycle - t) : t;
+                            } else {
+                                s0 = baseS;
+                            }
+                        } else {
+                            s0 = 0.f;
+                        }
                     }
 
                     // Color
@@ -475,8 +563,13 @@ void render_lines(const Image& src, const Image& dst, const LinesParams& p, cons
 
                         if (p.edgeDirection == LED_ALONG) {
                             for (int s = 0; s <= segCount; ++s) {
-                                float curS = std::fmod(s0 + s * stepS, chain.totalLength);
-                                if (curS < 0.f) curS += chain.totalLength;
+                                float curS = 0.f;
+                                if (isClosed) {
+                                    curS = std::fmod(s0 + s * stepS, chain.totalLength);
+                                    if (curS < 0.f) curS += chain.totalLength;
+                                } else {
+                                    curS = clampf(s0 + s * stepS, 0.f, chain.totalLength);
+                                }
 
                                 float cx, cy, cnx, cny, ctx, cty;
                                 evaluate_contour(chain, curS, cx, cy, cnx, cny, ctx, cty);

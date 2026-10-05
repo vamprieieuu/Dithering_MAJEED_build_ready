@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Download, Upload, CheckCircle2, ShieldCheck, Play, Pause, RefreshCw, Sliders, Layers, Sparkles, Cpu, Eye, EyeOff } from 'lucide-react';
+import { renderLines } from './engine/linesEngine';
 
 export default function App() {
   // --- Lines Parameters (Defaults must be OFF as per Requirement 1) ---
@@ -95,52 +96,77 @@ export default function App() {
     if (selectedSubject === 'custom' && customImage) {
       ctx.drawImage(customImage, 0, 0, W, H);
     } else if (selectedSubject === 'person') {
-      // Draw a refined person silhouette with head, hair, shoulders, arms, torso, clothing boundaries
-      ctx.fillStyle = '#0f172a';
+      // Draw refined person portrait with clean, high-contrast silhouettes and internal contours
+      ctx.fillStyle = '#0b0f19';
       ctx.fillRect(0, 0, W, H);
 
-      // Gradient background
-      const bgGrad = ctx.createLinearGradient(0, 0, W, H);
+      // Studio background lighting
+      const bgGrad = ctx.createRadialGradient(W * 0.5, H * 0.45, W * 0.05, W * 0.5, H * 0.5, W * 0.65);
       bgGrad.addColorStop(0, '#1e293b');
-      bgGrad.addColorStop(1, '#090d16');
+      bgGrad.addColorStop(1, '#05070e');
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, W, H);
 
-      // Person silhouette drawing
       ctx.save();
-      // Shoulders & Torso
-      ctx.fillStyle = '#f8fafc';
+      // Torso & Outer Jacket Silhouette
+      ctx.fillStyle = '#f1f5f9';
       ctx.beginPath();
-      // Torso / Jacket
-      ctx.moveTo(W * 0.28, H * 0.95);
-      ctx.lineTo(W * 0.32, H * 0.52); // Left shoulder
-      ctx.quadraticCurveTo(W * 0.42, H * 0.46, W * 0.46, H * 0.40); // Neck left
-      ctx.lineTo(W * 0.54, H * 0.40); // Neck right
-      ctx.quadraticCurveTo(W * 0.58, H * 0.46, W * 0.68, H * 0.52); // Right shoulder
-      ctx.lineTo(W * 0.72, H * 0.95);
+      ctx.moveTo(W * 0.22, H * 0.98);
+      ctx.lineTo(W * 0.26, H * 0.62); // Left arm / biceps
+      ctx.quadraticCurveTo(W * 0.28, H * 0.50, W * 0.38, H * 0.46); // Left shoulder curve
+      ctx.lineTo(W * 0.44, H * 0.40); // Neck left
+      ctx.lineTo(W * 0.56, H * 0.40); // Neck right
+      ctx.lineTo(W * 0.62, H * 0.46); // Right shoulder
+      ctx.quadraticCurveTo(W * 0.72, H * 0.50, W * 0.74, H * 0.62); // Right arm
+      ctx.lineTo(W * 0.78, H * 0.98);
       ctx.closePath();
       ctx.fill();
 
-      // Head & Hair
+      // Jacket lapels and chest creases (internal contours)
+      ctx.fillStyle = '#cbd5e1';
+      ctx.beginPath();
+      ctx.moveTo(W * 0.44, H * 0.40);
+      ctx.lineTo(W * 0.50, H * 0.68);
+      ctx.lineTo(W * 0.36, H * 0.98);
+      ctx.lineTo(W * 0.30, H * 0.98);
+      ctx.lineTo(W * 0.38, H * 0.54);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(W * 0.56, H * 0.40);
+      ctx.lineTo(W * 0.50, H * 0.68);
+      ctx.lineTo(W * 0.64, H * 0.98);
+      ctx.lineTo(W * 0.70, H * 0.98);
+      ctx.lineTo(W * 0.62, H * 0.54);
+      ctx.closePath();
+      ctx.fill();
+
+      // Shirt / Neck inner silhouette
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.moveTo(W * 0.46, H * 0.40);
+      ctx.lineTo(W * 0.50, H * 0.52);
+      ctx.lineTo(W * 0.54, H * 0.40);
+      ctx.closePath();
+      ctx.fill();
+
+      // Head / Face silhouette
       ctx.fillStyle = '#e2e8f0';
       ctx.beginPath();
-      ctx.ellipse(W * 0.5, H * 0.30, W * 0.12, H * 0.15, 0, 0, Math.PI * 2);
+      ctx.ellipse(W * 0.5, H * 0.28, W * 0.12, H * 0.15, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Hair silhouette
+      // Styled Hair silhouette
       ctx.fillStyle = '#020617';
       ctx.beginPath();
-      ctx.ellipse(W * 0.5, H * 0.25, W * 0.13, H * 0.13, 0, Math.PI, Math.PI * 2);
+      ctx.ellipse(W * 0.5, H * 0.23, W * 0.135, H * 0.13, 0, Math.PI * 0.9, Math.PI * 2.1);
+      ctx.quadraticCurveTo(W * 0.64, H * 0.26, W * 0.62, H * 0.32);
+      ctx.quadraticCurveTo(W * 0.58, H * 0.26, W * 0.50, H * 0.25);
+      ctx.quadraticCurveTo(W * 0.42, H * 0.26, W * 0.38, H * 0.32);
+      ctx.quadraticCurveTo(W * 0.36, H * 0.26, W * 0.5, H * 0.23);
+      ctx.closePath();
       ctx.fill();
-
-      // Clothing collar / internal edges
-      ctx.strokeStyle = '#334155';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(W * 0.44, H * 0.42);
-      ctx.lineTo(W * 0.5, H * 0.58);
-      ctx.lineTo(W * 0.56, H * 0.42);
-      ctx.stroke();
 
       ctx.restore();
     } else {
@@ -153,165 +179,63 @@ export default function App() {
       ctx.arc(W * 0.5, H * 0.5, W * 0.28, 0, Math.PI * 2);
       ctx.fill();
 
-      // Internal circle
+      // Internal concentric ring & shapes
       ctx.fillStyle = '#334155';
       ctx.beginPath();
-      ctx.arc(W * 0.5, H * 0.5, W * 0.14, 0, Math.PI * 2);
+      ctx.arc(W * 0.5, H * 0.5, W * 0.16, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.beginPath();
+      ctx.arc(W * 0.5, H * 0.5, W * 0.08, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // 2. Lines Rendering
+    // 2. Lines Rendering via shared production engine
     if (linesEnabled && linesAmount > 0 && linesOpacity > 0) {
       const imgData = ctx.getImageData(0, 0, W, H);
-      const data = imgData.data;
-
-      // Extract contours if Object mode is ON
-      if (objectMode) {
-        // Canny / Sobel edge extraction on current canvas buffer
-        const luma = new Float32Array(W * H);
-        for (let i = 0; i < W * H; i++) {
-          luma[i] = (0.2126 * data[i * 4] + 0.7152 * data[i * 4 + 1] + 0.0722 * data[i * 4 + 2]) / 255;
-        }
-
-        // Gradients
-        const edgePoints: { x: number; y: number; nx: number; ny: number; tx: number; ty: number }[] = [];
-        const sens = edgeSensitivity / 30;
-        const thresh = (edgeThreshold / 100) * 0.4;
-
-        for (let y = 2; y < H - 2; y += 2) {
-          for (let x = 2; x < W - 2; x += 2) {
-            const idx = y * W + x;
-            const gx = (luma[idx + 1] - luma[idx - 1]) * sens;
-            const gy = (luma[idx + W] - luma[idx - W]) * sens;
-            const mag = Math.hypot(gx, gy);
-            if (mag > thresh) {
-              const inv = 1 / Math.max(1e-5, mag);
-              edgePoints.push({
-                x,
-                y,
-                nx: gx * inv,
-                ny: gy * inv,
-                tx: -gy * inv,
-                ty: gx * inv
-              });
-            }
-          }
-        }
-
-        // Draw real contour-following lines directly ON detected edges
-        if (edgePoints.length > 0) {
-          ctx.save();
-          ctx.strokeStyle = lineColor;
-          ctx.lineWidth = lineThickness;
-          ctx.globalAlpha = linesOpacity / 100;
-
-          const activeCount = Math.min(edgePoints.length, Math.floor(linesAmount * 0.6));
-          const step = Math.max(1, Math.floor(edgePoints.length / activeCount));
-          const baseLen = Math.max(4, lineLength);
-          const curveFactor = handMade ? (curve / 100) * 3 : 0;
-
-          for (let i = 0; i < edgePoints.length; i += step) {
-            const pt = edgePoints[i];
-            const drift = autoAnim ? Math.sin(animTime * 2 + i * 0.1) * (baseLen * 0.3) : 0;
-            const len = baseLen + drift;
-
-            const renderContourStroke = (offset: number, alphaMult: number, widthMult: number) => {
-              ctx.lineWidth = lineThickness * widthMult;
-              ctx.globalAlpha = (linesOpacity / 100) * alphaMult;
-              ctx.beginPath();
-
-              const startX = pt.x + pt.nx * (edgeOffset + offset);
-              const startY = pt.y + pt.ny * (edgeOffset + offset);
-              ctx.moveTo(startX, startY);
-
-              if (edgeDirection === 0) {
-                // Along Contours
-                const segs = 6;
-                for (let s = 1; s <= segs; s++) {
-                  const frac = s / segs;
-                  const wobble = curveFactor > 0 ? Math.sin(frac * Math.PI) * Math.sin(frac * 6.28 + animTime) * curveFactor : 0;
-                  const px = startX + pt.tx * (len * frac) + pt.nx * wobble;
-                  const py = startY + pt.ty * (len * frac) + pt.ny * wobble;
-                  ctx.lineTo(px, py);
-                }
-              } else if (edgeDirection === 1) {
-                // Perpendicular
-                ctx.lineTo(startX + pt.nx * len, startY + pt.ny * len);
-              } else if (edgeDirection === 2) {
-                // Random
-                const ang = (i * 137.5 * Math.PI) / 180;
-                ctx.lineTo(startX + Math.cos(ang) * len, startY + Math.sin(ang) * len);
-              } else {
-                // Custom
-                const ang = (lineAngle * Math.PI) / 180;
-                ctx.lineTo(startX + Math.cos(ang) * len, startY + Math.sin(ang) * len);
-              }
-              ctx.stroke();
-            };
-
-            // Main contour line (ZERO GAP!)
-            renderContourStroke(0, 1.0, 1.0);
-
-            // Duplicate Lines
-            if (duplicate) {
-              for (let d = 1; d <= dupCount; d++) {
-                renderContourStroke(d * dupOffset, dupOpacity / 100, dupThickness / Math.max(0.1, lineThickness));
-              }
-            }
-          }
-          ctx.restore();
-        }
-      } else {
-        // Procedural Lines (Object = OFF)
-        ctx.save();
-        ctx.strokeStyle = lineColor;
-        ctx.lineWidth = lineThickness;
-        ctx.globalAlpha = linesOpacity / 100;
-
-        const count = Math.min(linesAmount, 1200);
-        const curveFactor = handMade ? (curve / 100) * 4 : 0;
-
-        for (let i = 0; i < count; i++) {
-          // Deterministic hash positions
-          const rx = ((i * 1664525 + 1013904223) % W);
-          const ry = ((i * 22695477 + 1) % H);
-          const ang = (lineAngle * Math.PI) / 180 + ((i % 10) - 5) * 0.1;
-          const len = lineLength * (0.8 + ((i % 5) / 5) * 0.4);
-          const sway = autoAnim ? Math.sin(animTime * 2 + i) * 8 : 0;
-
-          ctx.beginPath();
-          ctx.moveTo(rx, ry);
-          const segs = 4;
-          for (let s = 1; s <= segs; s++) {
-            const frac = s / segs;
-            const bend = curveFactor > 0 ? Math.sin(frac * Math.PI) * curveFactor * ((i % 2 === 0 ? 1 : -1)) : 0;
-            const px = rx + Math.cos(ang) * (len * frac) - Math.sin(ang) * (bend + sway);
-            const py = ry + Math.sin(ang) * (len * frac) + Math.cos(ang) * (bend + sway);
-            ctx.lineTo(px, py);
-          }
-          ctx.stroke();
-
-          if (duplicate) {
-            for (let d = 1; d <= dupCount; d++) {
-              ctx.save();
-              ctx.globalAlpha = (linesOpacity / 100) * (dupOpacity / 100);
-              ctx.lineWidth = dupThickness;
-              ctx.beginPath();
-              ctx.moveTo(rx + d * dupOffset, ry + d * dupOffset);
-              ctx.lineTo(rx + d * dupOffset + Math.cos(ang) * len, ry + d * dupOffset + Math.sin(ang) * len);
-              ctx.stroke();
-              ctx.restore();
-            }
-          }
-        }
-        ctx.restore();
-      }
+      renderLines(
+        ctx,
+        imgData,
+        {
+          enabled: linesEnabled,
+          amount: linesAmount,
+          length: lineLength,
+          lengthRand,
+          width: lineThickness,
+          widthRand: thicknessRand,
+          angle: lineAngle,
+          angleRand,
+          color: lineColor,
+          colorMode,
+          opacity: linesOpacity,
+          objectMode,
+          edgeThreshold,
+          edgeSensitivity,
+          edgeDirection,
+          edgeOffset,
+          handMade,
+          curve,
+          duplicate,
+          duplicateCount: dupCount,
+          duplicateOffset: dupOffset,
+          duplicateLength: dupLength,
+          duplicateWidth: dupThickness,
+          duplicateOpacity: dupOpacity,
+          autoAnim,
+          animSpeed,
+          motionRand,
+          seed,
+        },
+        animTime
+      );
     }
   }, [
-    linesEnabled, linesAmount, lineLength, lineThickness, lineColor, linesOpacity,
+    linesEnabled, linesAmount, lineLength, lengthRand, lineThickness, thicknessRand,
+    lineAngle, angleRand, lineColor, colorMode, linesOpacity,
     objectMode, edgeThreshold, edgeSensitivity, edgeDirection, edgeOffset,
-    handMade, curve, duplicate, dupCount, dupOffset, dupThickness, dupOpacity,
-    autoAnim, animTime, selectedSubject, customImage
+    handMade, curve, duplicate, dupCount, dupOffset, dupLength, dupThickness, dupOpacity,
+    autoAnim, animSpeed, motionRand, seed, animTime, selectedSubject, customImage
   ]);
 
   return (

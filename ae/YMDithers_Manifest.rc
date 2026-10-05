@@ -1,4 +1,0 @@
-// Embed isolation-aware DLL manifest (ID 2, Type 24) for MinGW only
-#if defined(__MINGW32__) && !defined(_MSC_VER)
-2 24 "YMDithers.manifest"
-#endif

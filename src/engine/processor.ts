@@ -693,14 +693,14 @@ export function processDitherImage(
     }
   }
 
-  const compositeImgData = new ImageData(outComposite, W, H);
+  const compositeImgData = new ImageData(outComposite as any, W, H);
   const result: ProcessResult = {
     composite: compositeImgData,
   };
 
-  if (outHigh) result.highlightsLayer = new ImageData(outHigh, W, H);
-  if (outMid) result.midtonesLayer = new ImageData(outMid, W, H);
-  if (outShad) result.shadowsLayer = new ImageData(outShad, W, H);
+  if (outHigh) result.highlightsLayer = new ImageData(outHigh as any, W, H);
+  if (outMid) result.midtonesLayer = new ImageData(outMid as any, W, H);
+  if (outShad) result.shadowsLayer = new ImageData(outShad as any, W, H);
 
   return result;
 }

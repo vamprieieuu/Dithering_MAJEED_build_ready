@@ -1,8 +1,6 @@
 {
-  "name": "YMDithers — Native After Effects Plugin & Interactive Preview",
-  "description": "Native Adobe After Effects 23.2.1 SmartFX plugin (YMDithers.aex) featuring 49 Dither & Halftone algorithms and real contour-following Lines effect, with live interactive simulator and direct AEX binary download.",
-  "permissions": [],
-  "capabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "name": "YMDithers Studio - Dithering & Halftone FX",
+  "description": "High-fidelity retro dithering, continuous halftoning, and color grading suite with 49 authentic diffusion, Bayer, stochastic, and screen modulation algorithms.",
+  "requestFramePermissions": [],
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
