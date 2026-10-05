@@ -57,7 +57,7 @@ using namespace majeed;
 
 MJ_DEFINE_PARAMS(LINES_LIST, LINES)
 
-static void lines_render(const Image& src, const Image& dst, const mj::Vals& v, const FrameCtx& c) {
+static void lines_render(const Image& src, Image& dst, const mj::Vals& v, const FrameCtx& c) {
     LinesParams p;
     p.amount = v[LN_AMOUNT]; p.density = v[LN_DENSITY]; p.minLen = v[LN_MINLEN]; p.maxLen = std::max(v[LN_MINLEN], v[LN_MAXLEN]); p.lengthScale = v[LN_LENSCALE];
     p.minThick = v[LN_MINTHK]; p.maxThick = std::max(v[LN_MINTHK], v[LN_MAXTHK]); p.thickScale = v[LN_THKSCALE];

@@ -355,7 +355,7 @@ void render_dither(const Image& src, const Image& dst, const DitherParams& p, co
         for (int y = y0; y < y1; ++y)
             for (int x = 0; x < W; ++x) {
                 size_t gi = (size_t)(y / block) * gw + (x / block);
-                float v[3];
+                float v[3] = { 0.f, 0.f, 0.f };
                 for (int k = 0; k < nch; ++k) { float t = pl[k][gi]; if (p.linear) t = std::pow(t, 1.f / gam); v[k] = t; }
                 float rgb[3];
                 if (p.mode == 0) { rgb[0] = v[0]; rgb[1] = v[1]; rgb[2] = v[2]; }

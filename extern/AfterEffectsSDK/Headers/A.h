@@ -44,7 +44,7 @@
 	typedef A_long			A_Fixed;
 	typedef A_u_long		A_UFixed;
 
-	#if defined( __MWERKS__) || defined (__GNUC__)  // metrowerks codewarrior and XCode/GCC
+	#if defined( __MWERKS__) || (defined (__GNUC__) && !defined(_WIN32))  // metrowerks codewarrior and XCode/GCC
 		typedef int16_t			A_short;
 		typedef uint16_t		A_u_short;
 		typedef uint8_t			A_u_char;
@@ -56,9 +56,9 @@
 		typedef unsigned char	A_u_char;
 		typedef unsigned char	A_Boolean;	
 		#ifdef  _WIN64
-			typedef __int64     A_intptr_t;
+			typedef int64_t     A_intptr_t;
 		#else
-			typedef  int32_t       A_intptr_t;
+			typedef int32_t     A_intptr_t;
 		#endif
 	#endif
 
@@ -189,7 +189,7 @@ typedef struct _Up_OpaqueMem **AEGP_MemHandle;
 
 typedef	A_u_short			A_UTF16Char;
 
-#if defined( __MWERKS__) || defined (__GNUC__)  // metrowerks codewarrior and XCode/GCC
+#if defined( __MWERKS__) || (defined (__GNUC__) && !defined(_WIN32))  // metrowerks codewarrior and XCode/GCC
 	typedef A_char			A_LegacyEnumType;
 #else // windows
 	typedef A_long			A_LegacyEnumType;

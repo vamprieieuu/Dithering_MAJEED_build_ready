@@ -36,7 +36,7 @@ using namespace majeed;
 
 MJ_DEFINE_PARAMS(CH_LIST, CH)
 
-static void ch_render(const Image& src, const Image& dst, const mj::Vals& v, const FrameCtx& c) {
+static void ch_render(const Image& src, Image& dst, const mj::Vals& v, const FrameCtx& c) {
     ChannelParams p;
     p.rX = v[CC_RX]; p.rY = v[CC_RY]; p.gX = v[CC_GX]; p.gY = v[CC_GY]; p.bX = v[CC_BX]; p.bY = v[CC_BY];
     p.sepAmount = v[CC_SEP]; p.sepAngle = v[CC_SEPANG]; p.sepMode = v.pop(CC_SEPMODE);

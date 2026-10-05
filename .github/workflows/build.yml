@@ -1,6 +1,8 @@
-name: Build Dithering MAJEED.aex
+name: Build MAJEED.aex
 
 on:
+  push:
+  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -21,22 +23,25 @@ jobs:
       - name: Build MAJEED target
         run: cmake --build build --config Release --target MAJEED --parallel
 
-      - name: Verify AEX
+      - name: Verify MAJEED.aex
         shell: pwsh
         run: |
-          $aex = Get-ChildItem -Path build -Filter 'Dithering MAJEED.aex' -Recurse -File | Select-Object -First 1
+          $aex = Get-ChildItem -Path build -Filter 'MAJEED.aex' -Recurse -File | Select-Object -First 1
           if (-not $aex) {
-            Write-Host "Dithering MAJEED.aex was not found. Built files:"
+            Write-Host "MAJEED.aex was not found. Built files:"
             Get-ChildItem -Path build -Recurse -File | Where-Object { $_.Extension -in '.aex','.dll','.lib','.obj','.rc' } | Select-Object FullName,Length
-            Write-Error "Dithering MAJEED.aex was not produced."
+            Write-Error "MAJEED.aex was not produced."
             exit 1
           }
           Write-Host "Built: $($aex.FullName)"
           Get-Item $aex.FullName | Format-List FullName,Length,LastWriteTime
+          dumpbin /headers /exports $aex.FullName
 
       - name: Upload MAJEED.aex
         uses: actions/upload-artifact@v4
         with:
-          name: Dithering-MAJEED-aex
-          path: build/**/Dithering MAJEED.aex
+          name: MAJEED.aex
+          path: |
+            build/bin/Release/MAJEED.aex
+            build/bin/Release/Dithering MAJEED.aex
           if-no-files-found: error

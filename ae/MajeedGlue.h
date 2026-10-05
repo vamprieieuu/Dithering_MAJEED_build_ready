@@ -14,7 +14,9 @@
 #include "Param_Utils.h"
 #include "AE_EffectCBSuites.h"
 #include "AE_EffectSuites.h"
+#include "AE_PluginData.h"
 #include "AEFX_SuiteHelper.h"
+#include "AEFX_SuiteHandlerTemplate.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -103,7 +105,7 @@ inline PF_Err ParamsSetup(PF_InData* in_data, PF_OutData* out_data, const Effect
         switch (s.t) {
         case T_FLOAT: {
             AEFX_CLR_STRUCT(def);
-            PF_ADD_FLOAT_SLIDERX(s.name, s.mn, s.mx, s.smn, s.smx, s.def, s.prec, 0, 0, 0, id);
+            PF_ADD_FLOAT_SLIDERX(s.name, s.mn, s.mx, s.smn, s.smx, s.def, s.prec, 0, 0, id);
             break;
         }
         case T_CHECK: {
@@ -123,8 +125,7 @@ inline PF_Err ParamsSetup(PF_InData* in_data, PF_OutData* out_data, const Effect
         }
         case T_ANGLE: {
             AEFX_CLR_STRUCT(def);
-            // PF_Param_ANGLE values are 16.16 fixed-point degrees
-            PF_ADD_ANGLE(s.name, (A_long)(s.def * 65536.0), id);
+            PF_ADD_ANGLE(s.name, s.def, id);
             break;
         }
         case T_GROUP: {
@@ -246,7 +247,7 @@ inline PF_Err RenderWorlds(PF_InData* in_data, PF_OutData* out_data, const Effec
 
     // ---- pixel format ----------------------------------------------------
     PF_PixelFormat fmt = PF_PixelFormat_INVALID;
-    AEFX_SuiteScoper<PF_WorldSuite2> ws(in_data, kPF_WorldSuite, kPF_WorldSuiteVersion2, out_data);
+    AEFX_SuiteScoper<PF_WorldSuite2> ws(in_data, kPFWorldSuite, kPFWorldSuiteVersion2, out_data);
     ERR(ws->PF_GetPixelFormat(inW, &fmt));
     if (err) return err;
     if (fmt != PF_PixelFormat_ARGB32 && fmt != PF_PixelFormat_ARGB64 && fmt != PF_PixelFormat_ARGB128)

@@ -179,7 +179,7 @@ static void mix_into(Image& dst, const Image& src, const Image& fx, float amount
     amount=clamp01(amount); for(int y=0;y<dst.h;++y)for(int x=0;x<dst.w;++x){float* o=dst.at(x,y);const float* a=src.at(x,y);const float* b=fx.at(x,y);for(int c=0;c<3;++c)o[c]=lerp3(a[c],b[c],amount);o[3]=a[3];}
 }
 
-static void unified_render(const Image& src, const Image& dst, const mj::Vals& v, const FrameCtx& c) {
+static void unified_render(const Image& src, Image& dst, const mj::Vals& v, const FrameCtx& c) {
     const int W=src.w,H=src.h;
     std::vector<float> a((size_t)W*H*4), b((size_t)W*H*4), fx((size_t)W*H*4);
     Image A{W,H,a.data()}, B{W,H,b.data()}, FX{W,H,fx.data()};
@@ -195,7 +195,7 @@ static void unified_render(const Image& src, const Image& dst, const mj::Vals& v
     copy_image(FX,A);
     if(v.on(DM_PIXELATE)) { pixelate_image(A,B,std::max(1,(int)std::round(v[DM_SIZE]))); copy_image(B,A); }
 
-    if(v.on(DM_GRAIN)) {
+    if(v.on(DM_GRAIN_ON)) {
         GrainParams gp; gp.type=GT_CRYSTAL; gp.sizeMm=4.0+60.0*(v[DM_GRAIN_SIZE]/100.0); gp.frameWidthMm=std::max(50.0,c.fullW); gp.amount=v[DM_GRAIN_AMT]; gp.softness=v[DM_GRAIN_SOFT]; gp.colorAmt=v[DM_GRAIN_COLOR]; gp.shadows=v[DM_GRAIN_SHAD]; gp.highlights=v[DM_GRAIN_HIGH]; gp.seed=(int)v[DM_GRAIN_SEED]; gp.evoSpeed=(v[DM_GRAIN_SPEED]/100.0)*24.0; gp.saturation=100; gp.rgbGrain=100; gp.blend=BM_ADD_SIGNED; gp.density=100; gp.contrast=100; gp.sharpness=30; gp.aspect=100; gp.opacity=100;
         render_grain(A,FX,gp,c); copy_image(FX,A);
     }
@@ -210,25 +210,37 @@ static void unified_render(const Image& src, const Image& dst, const mj::Vals& v
 // ------------------------------------------------------------------ custom logo UI
 static PF_Err DrawLogo(PF_InData* in_data, PF_OutData* out_data, PF_EventExtra* extra) {
     if (extra->effect_win.area != PF_EA_CONTROL) return PF_Err_NONE;
-    PF_Err err=PF_Err_NONE;
-    DRAWBOT_DrawRef drawing_ref=nullptr; DRAWBOT_SurfaceRef surface_ref=nullptr; DRAWBOT_SupplierRef supplier_ref=nullptr; DRAWBOT_ImageRef image_ref=nullptr;
+    PF_Err err = PF_Err_NONE, err2 = PF_Err_NONE;
+    DRAWBOT_DrawRef drawing_ref = nullptr;
+    DRAWBOT_SurfaceRef surface_ref = nullptr;
+    DRAWBOT_SupplierRef supplier_ref = nullptr;
+    DRAWBOT_ImageRef image_ref = nullptr;
     DRAWBOT_Suites suites;
-    ERR(AEFX_AcquireDrawbotSuites(in_data,out_data,&suites));
-    if(err) return err;
-    PF_EffectCustomUISuite1* ui=nullptr;
-    ERR(AEFX_AcquireSuite(in_data,out_data,kPFEffectCustomUISuite,kPFEffectCustomUISuiteVersion1,nullptr,(void**)&ui));
-    if(!err && ui) { ERR((*ui->PF_GetDrawingReference)(extra->contextH,&drawing_ref)); AEFX_ReleaseSuite(in_data,out_data,kPFEffectCustomUISuite,kPFEffectCustomUISuiteVersion1,nullptr); }
-    if(err || !drawing_ref) return err;
-    ERR(suites.drawbot_suiteP->GetSupplier(drawing_ref,&supplier_ref));
-    ERR(suites.drawbot_suiteP->GetSurface(drawing_ref,&surface_ref));
-    if(err) return err;
-    ERR(suites.supplier_suiteP->NewImageFromBuffer(supplier_ref,MAJEED_LOGO_W,MAJEED_LOGO_H,MAJEED_LOGO_W*4,kDRAWBOT_PixelLayout_32ARGB_Straight,MAJEED_LOGO_ARGB,&image_ref));
-    if(!err && image_ref) {
-        DRAWBOT_PointF32 origin; origin.x=extra->effect_win.current_frame.left+6.0f; origin.y=extra->effect_win.current_frame.top+4.0f;
-        ERR(suites.surface_suiteP->DrawImage(surface_ref,image_ref,&origin,1.0f));
-        suites.surface_suiteP->ReleaseObject((DRAWBOT_ObjectRef)image_ref);
+    ERR(AEFX_AcquireDrawbotSuites(in_data, out_data, &suites));
+    if (err) return err;
+    PF_EffectCustomUISuite1* ui = nullptr;
+    ERR(AEFX_AcquireSuite(in_data, out_data, kPFEffectCustomUISuite, kPFEffectCustomUISuiteVersion1, nullptr, (void**)&ui));
+    if (!err && ui) {
+        ERR((*ui->PF_GetDrawingReference)(extra->contextH, &drawing_ref));
+        AEFX_ReleaseSuite(in_data, out_data, kPFEffectCustomUISuite, kPFEffectCustomUISuiteVersion1, nullptr);
     }
-    (void)output; return err;
+    if (!err && drawing_ref) {
+        ERR(suites.drawbot_suiteP->GetSupplier(drawing_ref, &supplier_ref));
+        ERR(suites.drawbot_suiteP->GetSurface(drawing_ref, &surface_ref));
+    }
+    if (!err && supplier_ref && surface_ref) {
+        ERR(suites.supplier_suiteP->NewImageFromBuffer(supplier_ref, MAJEED_LOGO_W, MAJEED_LOGO_H, MAJEED_LOGO_W * 4, kDRAWBOT_PixelLayout_32ARGB_Straight, MAJEED_LOGO_ARGB, &image_ref));
+        if (!err && image_ref) {
+            DRAWBOT_PointF32 origin;
+            origin.x = extra->effect_win.current_frame.left + 6.0f;
+            origin.y = extra->effect_win.current_frame.top + 4.0f;
+            ERR(suites.surface_suiteP->DrawImage(surface_ref, image_ref, &origin, 1.0f));
+            ERR2(suites.supplier_suiteP->ReleaseObject((DRAWBOT_ObjectRef)image_ref));
+        }
+    }
+    ERR2(AEFX_ReleaseDrawbotSuites(in_data, out_data));
+    extra->evt_out_flags = PF_EO_HANDLED_EVENT;
+    return err ? err : err2;
 }
 
 static PF_Err DitherEvent(PF_InData* in_data, PF_OutData* out_data, PF_EventExtra* extra) {
@@ -245,3 +257,48 @@ static const mj::EffectDef DITHERING_MAJEED_DEF = {
 };
 
 MJ_EXPORT_EFFECT(EffectMainDitheringMAJEED, DITHERING_MAJEED_DEF)
+MJ_EXPORT_EFFECT(EffectMain, DITHERING_MAJEED_DEF)
+
+extern "C" DllExport PF_Err PluginDataEntryFunction2(
+    PF_PluginDataPtr inPtr,
+    PF_PluginDataCB2 inPluginDataCallBackPtr,
+    SPBasicSuite* inSPBasicSuitePtr,
+    const char* inHostName,
+    const char* inHostVersion)
+{
+    (void)inSPBasicSuitePtr;
+    (void)inHostName;
+    (void)inHostVersion;
+    PF_Err result = PF_Err_INVALID_CALLBACK;
+    result = PF_REGISTER_EFFECT_EXT2(
+        inPtr,
+        inPluginDataCallBackPtr,
+        "Dithering MAJEED",
+        "Dithering MAJEED",
+        "MAJEED",
+        AE_RESERVED_INFO,
+        "EffectMainDitheringMAJEED",
+        "https://example.invalid/majeed");
+    return result;
+}
+
+extern "C" DllExport PF_Err PluginDataEntryFunction(
+    PF_PluginDataPtr inPtr,
+    PF_PluginDataCB inPluginDataCallBackPtr,
+    SPBasicSuite* inSPBasicSuitePtr,
+    const char* inHostName,
+    const char* inHostVersion)
+{
+    (void)inSPBasicSuitePtr;
+    (void)inHostName;
+    (void)inHostVersion;
+    PF_Err result = PF_Err_INVALID_CALLBACK;
+    result = PF_REGISTER_EFFECT(
+        inPtr,
+        inPluginDataCallBackPtr,
+        "Dithering MAJEED",
+        "Dithering MAJEED",
+        "MAJEED",
+        AE_RESERVED_INFO);
+    return result;
+}
