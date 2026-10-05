@@ -1,5 +1,8 @@
 {
-  "name": "YMDithers Studio - Retro Halftone & Dithering Engine",
-  "description": "Professional 49-algorithm dithering, halftone, and contour screening engine with real-time continuous spot synthesis, multi-tone color grading, levels, and vector export.",
-  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "name": "YMDithers Studio",
+  "description": "Professional 49-algorithm retro dithering, halftone screening, and procedural contour lines engine inspired by Majeed Dither and DitherTONE.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

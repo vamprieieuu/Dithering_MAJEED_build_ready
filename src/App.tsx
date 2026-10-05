@@ -1,125 +1,117 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Header } from './components/Header';
-import { CanvasViewport } from './components/CanvasViewport';
-import { DitherControls } from './components/DitherControls';
-import { ExportModal } from './components/ExportModal';
-import { AlgorithmInfoModal } from './components/AlgorithmInfoModal';
-import { DitherParams, PresetStyle } from './types/dither';
-import { processDither, ALGORITHMS } from './engine/ditherEngine';
-import { SAMPLE_IMAGES } from './engine/sampleImages';
+import { Viewport } from './components/Viewport';
+import { ControlPanel } from './components/ControlPanel';
+import { SampleModal } from './components/SampleModal';
+import { DitherSettings } from './types/dither';
+import { processDither, hexToRgb } from './engine/ditherEngine';
+import { renderLinesOverlay } from './engine/linesEngine';
+import { SAMPLE_IMAGES, SampleImage } from './engine/samples';
+import { PRESET_PALETTES } from './engine/palettes';
+import { BUILT_IN_PRESETS } from './engine/presets';
 
-const DEFAULT_PARAMS: DitherParams = {
-  algoId: 0, // Floyd-Steinberg
-  dpi: 300,
-  scale: 4,
-  renderMode: 'tonal',
-
-  // Density & Dot Coverage
+const DEFAULT_SETTINGS: DitherSettings = {
+  algo: 16, // Bayer 4x4
+  mode: 'mono',
+  levels: 2,
+  scale: 2,
+  threshold: 50,
   amount: 100,
   whiteAmount: 100,
   blackAmount: 100,
-  threshold: 50,
   strength: 100,
-  contrast: 110,
-  brightness: 0,
-  levelsCount: 2,
-
-  // Tonal mode
-  tonalCount: 1,
-  highlightThreshold: 128,
-  midtoneThreshold: 90,
-  shadowThreshold: 45,
-  highlightColor: '#00e5ff',
-  midtoneColor: '#ff007f',
-  shadowColor: '#12151c',
-  backgroundColor: '#0a0c10',
-  knockoutBg: false,
-
-  // Color Grade
-  colorspace: 'indexed',
-  indexedColorCount: 8,
-  spread: 100,
-  palettePreset: 'classic-faded',
-  customPalette: [],
-  gradeBias: 0,
-  gradeBiasSource: 'classic-faded',
-  biasStyle: 'screen',
-  grainMode: 'grain',
-  hue: 0,
-  saturation: 0,
-  invert: false,
-
-  // Pre-processing
-  levels: {
-    blackClip: 0,
-    shadow: 0,
-    mid: 1.0,
-    highlight: 255,
-    whiteClip: 255,
-  },
-  sharpenStrength: 15,
-  sharpenRadius: 10,
-  noise: 0,
-  blur: 0,
-
-  // Pattern
   patternScale: 100,
   patternAngle: 0,
+  contrast: 110,
+  brightness: 0,
+  noise: 0,
   serpentine: true,
+  linear: false,
+  invert: false,
   pixelate: false,
-  seed: 1,
-
-  // Contour lines
-  lines: {
-    enabled: false,
-    amount: 300,
-    length: 45,
-    width: 1.2,
-    opacity: 80,
-    curvature: 25,
-    color: '#00e5ff',
-    edgeGuided: true,
-    duplicate: false,
-  },
+  darkColor: '#000000',
+  lightColor: '#ffffff',
+  midColor: '#808080',
+  selectedPalette: 'gameboy',
+  customPalette: [],
+  sharpenStrength: 0,
+  sharpenRadius: 1,
+  preBlur: 0,
+  preNoise: 0,
+  enableLines: false,
+  linesAmount: 350,
+  lineLength: 35,
+  lineLengthRand: 30,
+  lineWidth: 1.0,
+  lineColor: '#ffffff',
+  lineOpacity: 85,
+  lineObjectMode: true,
+  lineEdgeThreshold: 25,
+  lineHandMade: true,
+  lineCurve: 30,
+  lineDuplicate: false,
+  lineDuplicateCount: 1,
+  lineDuplicateOffset: 2.5,
 };
 
-export function App() {
-  const [params, setParams] = useState<DitherParams>(DEFAULT_PARAMS);
-  const [sourceImageData, setSourceImageData] = useState<ImageData | null>(null);
-  const [processedImageData, setProcessedImageData] = useState<ImageData | null>(null);
+export const App: React.FC = () => {
+  const [settings, setSettings] = useState<DitherSettings>(DEFAULT_SETTINGS);
+  const [originalImage, setOriginalImage] = useState<ImageData | null>(null);
+  const [ditheredImage, setDitheredImage] = useState<ImageData | null>(null);
   const [renderTimeMs, setRenderTimeMs] = useState<number>(0);
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [compareMode, setCompareMode] = useState<boolean>(false);
+  const [sampleModalOpen, setSampleModalOpen] = useState<boolean>(false);
 
-  // Modals
-  const [showExportModal, setShowExportModal] = useState<boolean>(false);
-  const [showHelpModal, setShowHelpModal] = useState<boolean>(false);
+  const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Worker / processing ref
-  const renderTimeoutRef = useRef<number | null>(null);
-
-  // Load sample image
-  const loadSample = useCallback((sampleId: string) => {
-    const sample = SAMPLE_IMAGES.find((s) => s.id === sampleId) || SAMPLE_IMAGES[0];
-    const offCanvas = document.createElement('canvas');
-    sample.generate(offCanvas);
-    const ctx = offCanvas.getContext('2d');
-    if (ctx) {
-      const imgData = ctx.getImageData(0, 0, offCanvas.width, offCanvas.height);
-      setSourceImageData(imgData);
-    }
+  // Initialize with high quality sample image on first load
+  useEffect(() => {
+    const defaultSample = SAMPLE_IMAGES[0];
+    const initialData = defaultSample.generate(480, 480);
+    setOriginalImage(initialData);
   }, []);
 
-  // Handle uploaded image file
-  const handleUploadImage = useCallback((file: File) => {
+  // Compute active palette colors
+  const getActivePaletteRgb = useCallback((): [number, number, number][] => {
+    const pal = PRESET_PALETTES.find((p) => p.id === settings.selectedPalette);
+    const colors = pal ? pal.colors : PRESET_PALETTES[0].colors;
+    return colors.map((hex) => hexToRgb(hex));
+  }, [settings.selectedPalette]);
+
+  // Re-run dither whenever settings or originalImage updates
+  useEffect(() => {
+    if (!originalImage) return;
+
+    const t0 = performance.now();
+    const activePalRgb = getActivePaletteRgb();
+    const processed = processDither(originalImage, settings, activePalRgb);
+    const t1 = performance.now();
+
+    setDitheredImage(processed);
+    setRenderTimeMs(t1 - t0);
+
+    // Update lines overlay if enabled
+    if (overlayCanvasRef.current) {
+      const ctx = overlayCanvasRef.current.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, overlayCanvasRef.current.width, overlayCanvasRef.current.height);
+        if (settings.enableLines) {
+          renderLinesOverlay(ctx, originalImage, settings);
+        }
+      }
+    }
+  }, [originalImage, settings, getActivePaletteRgb]);
+
+  // Handle image file upload
+  const handleUploadFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        const offCanvas = document.createElement('canvas');
-        // Cap max dimension to 1600px to maintain snappy responsive real-time dithering
+        // Clamp maximum resolution to ~1024 to keep responsive interactive FPS
         let w = img.width;
         let h = img.height;
-        const maxDim = 1200;
+        const maxDim = 900;
         if (w > maxDim || h > maxDim) {
           if (w > h) {
             h = Math.round((h * maxDim) / w);
@@ -129,137 +121,108 @@ export function App() {
             h = maxDim;
           }
         }
-        offCanvas.width = w;
-        offCanvas.height = h;
-        const ctx = offCanvas.getContext('2d');
+
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = w;
+        tempCanvas.height = h;
+        const ctx = tempCanvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, w, h);
           const imgData = ctx.getImageData(0, 0, w, h);
-          setSourceImageData(imgData);
+          setOriginalImage(imgData);
         }
       };
-      img.src = e.target?.result as string;
+      if (e.target?.result) {
+        img.src = e.target.result as string;
+      }
     };
     reader.readAsDataURL(file);
-  }, []);
+  };
 
-  // Clipboard paste listener (Ctrl+V)
-  useEffect(() => {
-    const handlePaste = (e: ClipboardEvent) => {
-      if (e.clipboardData && e.clipboardData.items) {
-        for (const item of Array.from(e.clipboardData.items)) {
-          if (item.type.indexOf('image') !== -1) {
-            const blob = item.getAsFile();
-            if (blob) handleUploadImage(blob);
-          }
-        }
-      }
-    };
-    window.addEventListener('paste', handlePaste);
-    return () => window.removeEventListener('paste', handlePaste);
-  }, [handleUploadImage]);
+  // Handle Preset application
+  const handleApplyPreset = (presetId: string) => {
+    const preset = BUILT_IN_PRESETS.find((p) => p.id === presetId);
+    if (preset) {
+      setSettings((prev) => ({
+        ...prev,
+        ...preset.settings,
+      }));
+    }
+  };
 
-  // Initial load
-  useEffect(() => {
-    loadSample('sculpture');
-  }, [loadSample]);
+  // Reset to default settings
+  const handleReset = () => {
+    setSettings(DEFAULT_SETTINGS);
+  };
 
-  // Perform dithering when source image or parameters change
-  useEffect(() => {
-    if (!sourceImageData) return;
+  // Export high quality canvas download
+  const handleExport = (format: 'png' | 'jpeg') => {
+    if (!ditheredImage) return;
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = ditheredImage.width;
+    exportCanvas.height = ditheredImage.height;
+    const ctx = exportCanvas.getContext('2d');
+    if (!ctx) return;
 
-    if (renderTimeoutRef.current) {
-      window.clearTimeout(renderTimeoutRef.current);
+    // Put dithered pixels
+    ctx.putImageData(ditheredImage, 0, 0);
+
+    // Draw lines overlay if canvas exists
+    if (settings.enableLines && overlayCanvasRef.current) {
+      ctx.drawImage(overlayCanvasRef.current, 0, 0);
     }
 
-    setIsProcessing(true);
-
-    // Fast debounce for sliders
-    renderTimeoutRef.current = window.setTimeout(() => {
-      const t0 = performance.now();
-      try {
-        const result = processDither(sourceImageData, params);
-        const t1 = performance.now();
-        setProcessedImageData(result);
-        setRenderTimeMs(t1 - t0);
-      } catch (err) {
-        console.error('Dithering calculation error:', err);
-      } finally {
-        setIsProcessing(false);
-      }
-    }, 20);
-
-    return () => {
-      if (renderTimeoutRef.current) {
-        window.clearTimeout(renderTimeoutRef.current);
-      }
-    };
-  }, [sourceImageData, params]);
-
-  // Update parameters helper
-  const handleParamChange = (updated: Partial<DitherParams>) => {
-    setParams((prev) => ({ ...prev, ...updated }));
+    const mime = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+    const ext = format === 'jpeg' ? 'jpg' : 'png';
+    const link = document.createElement('a');
+    link.download = `ymdithers_${Date.now()}.${ext}`;
+    link.href = exportCanvas.toDataURL(mime, 0.95);
+    link.click();
   };
-
-  const handleResetParam = (key: keyof DitherParams) => {
-    setParams((prev) => ({ ...prev, [key]: DEFAULT_PARAMS[key] }));
-  };
-
-  const handleSelectPreset = (preset: PresetStyle) => {
-    setParams((prev) => ({
-      ...prev,
-      ...preset.params,
-    }));
-  };
-
-  const activeAlgo = ALGORITHMS.find((a) => a.id === params.algoId) || ALGORITHMS[0];
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#0b0c0e]">
-      {/* Top Header */}
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#090a0f]">
+      {/* Top Application Bar */}
       <Header
-        onSelectSample={loadSample}
-        onUploadImage={handleUploadImage}
-        onSelectPreset={handleSelectPreset}
-        onReset={() => setParams(DEFAULT_PARAMS)}
-        onOpenExport={() => setShowExportModal(true)}
-        onOpenHelp={() => setShowHelpModal(true)}
-        activeAlgoName={activeAlgo.name}
-        isProcessing={isProcessing}
+        onExport={handleExport}
+        onReset={handleReset}
+        onApplyPreset={handleApplyPreset}
+        currentSettings={settings}
+        compareMode={compareMode}
+        onToggleCompare={() => setCompareMode(!compareMode)}
+        onOpenSampleModal={() => setSampleModalOpen(true)}
       />
 
-      {/* Main Workspace: Left Canvas + Right Controls */}
-      <div className="flex flex-1 overflow-hidden relative">
-        <CanvasViewport
-          processedImageData={processedImageData}
-          sourceImageData={sourceImageData}
-          linesConfig={params.lines}
+      {/* Main Workspace Area */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Central Pan & Zoom Canvas Viewport */}
+        <Viewport
+          originalImage={originalImage}
+          ditheredImage={ditheredImage}
           renderTimeMs={renderTimeMs}
+          compareMode={compareMode}
+          onUploadFile={handleUploadFile}
+          onOpenSampleModal={() => setSampleModalOpen(true)}
+          overlayCanvasRef={overlayCanvasRef}
         />
 
-        <DitherControls
-          params={params}
-          onChange={handleParamChange}
-          onResetParam={handleResetParam}
+        {/* Right Parameters & Modules Panel */}
+        <ControlPanel
+          settings={settings}
+          onChange={setSettings}
+          onReset={handleReset}
         />
       </div>
 
-      {/* Export Modal */}
-      <ExportModal
-        isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
-        processedImageData={processedImageData}
-        params={params}
-      />
-
-      {/* Algorithm Encyclopedia Modal */}
-      <AlgorithmInfoModal
-        isOpen={showHelpModal}
-        onClose={() => setShowHelpModal(false)}
-        onSelectAlgo={(id) => handleParamChange({ algoId: id })}
+      {/* Sample Image Selection Modal */}
+      <SampleModal
+        isOpen={sampleModalOpen}
+        onClose={() => setSampleModalOpen(false)}
+        onSelectSample={(sample) => {
+          const data = sample.generate(480, 480);
+          setOriginalImage(data);
+        }}
       />
     </div>
   );
-}
-
-export default App;
+};

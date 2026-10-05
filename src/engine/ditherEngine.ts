@@ -1,84 +1,78 @@
-import { AlgorithmDef, DitherParams, LevelsConfig, RGBColor } from '../types/dither';
-import { hexToRgb, rgbToHex, PALETTE_PRESETS } from './paletteData';
+import { DitherAlgoDefinition, DitherSettings } from '../types/dither';
 
-// ---------------------------------------------------------------------------
-// 49 ALGORITHMS (Exact match to core/dither.cpp and Photoshop plugin)
-// ---------------------------------------------------------------------------
-export const ALGORITHMS: AlgorithmDef[] = [
-  // DIFFUSION
-  { id: 0, name: 'Floyd-Steinberg', category: 'DIFFUSION', kind: 'error', param: 0, desc: 'Classic error diffusion 7-3-5-1 /16' },
-  { id: 1, name: 'Floyd-Steinberg Serpentine', category: 'DIFFUSION', kind: 'error', param: 0 | 256, desc: 'Floyd-Steinberg with alternating scan direction to eliminate directional worming' },
-  { id: 2, name: 'Jarvis-Judice-Ninke', category: 'DIFFUSION', kind: 'error', param: 1, desc: 'Wide 3-row 12-tap error diffusion kernel /48 for smooth gradients' },
-  { id: 3, name: 'Stucki', category: 'DIFFUSION', kind: 'error', param: 2, desc: 'Sharp 3-row 12-tap kernel /42 preserving edge contrast' },
-  { id: 4, name: 'Atkinson', category: 'DIFFUSION', kind: 'error', param: 3, desc: 'Original Apple Mac dither, diffuses 6/8 of error for crisp, high-contrast look' },
-  { id: 5, name: 'Burkes', category: 'DIFFUSION', kind: 'error', param: 4, desc: 'Fast 2-row 7-tap kernel /32' },
-  { id: 6, name: 'Sierra', category: 'SIERRA', kind: 'error', param: 5, desc: 'Sierra-3, full 3-row 10-tap diffusion kernel /32' },
-  { id: 7, name: 'Sierra Two Row', category: 'SIERRA', kind: 'error', param: 6, desc: 'Sierra-2, balanced 2-row 7-tap kernel /16' },
-  { id: 8, name: 'Sierra Lite', category: 'SIERRA', kind: 'error', param: 7, desc: 'Ultra-fast 2-row 3-tap kernel 2-1-1 /4' },
-  { id: 9, name: 'Fan', category: 'DIFFUSION', kind: 'error', param: 8, desc: 'Fan 4-tap asymmetric kernel /16' },
-  { id: 10, name: 'Shiau-Fan', category: 'DIFFUSION', kind: 'error', param: 9, desc: 'Shiau-Fan 5-tap wide dispersal kernel /16' },
-  { id: 11, name: 'Skip Neighbours', category: 'DIFFUSION', kind: 'error', param: 10, desc: '2-pixel step woven cluster error diffusion' },
-  { id: 12, name: 'Skip1 Neighbours', category: 'DIFFUSION', kind: 'error', param: 11, desc: '3-pixel step structured stipple diffusion' },
-  { id: 13, name: 'Skip2 Neighbours', category: 'DIFFUSION', kind: 'error', param: 12, desc: '4-pixel step cross-weave stippled diffusion' },
-  { id: 14, name: 'Xerox Grain', category: 'DIFFUSION', kind: 'error', param: 0 | 256 | 512 | 1024, desc: 'Photocopy toner edge boost + grainy serpentine diffusion' },
+// ----------------------------------------------------------------------------
+// Algorithm Registry matching core/dither.cpp ALGOS[]
+// ----------------------------------------------------------------------------
+export const DITHER_ALGOS: DitherAlgoDefinition[] = [
+  { id: 0,  name: 'Floyd-Steinberg',            category: 'diffusion', kind: 'error',  param: 0,   cell: 0, angle: 0,    description: 'Classic error diffusion 7-3-5-1 /16' },
+  { id: 1,  name: 'Floyd-Steinberg Serpentine', category: 'diffusion', kind: 'error',  param: 256, cell: 0, angle: 0,    description: 'Alternating bidirectional scan diffusion' },
+  { id: 2,  name: 'Jarvis-Judice-Ninke',        category: 'diffusion', kind: 'error',  param: 1,   cell: 0, angle: 0,    description: '3-row 12-tap wide diffusion kernel /48' },
+  { id: 3,  name: 'Stucki',                     category: 'diffusion', kind: 'error',  param: 2,   cell: 0, angle: 0,    description: '3-row 12-tap sharp crisp kernel /42' },
+  { id: 4,  name: 'Atkinson',                   category: 'diffusion', kind: 'error',  param: 3,   cell: 0, angle: 0,    description: 'Diffuses 6/8 of error for crisp high-contrast dotting' },
+  { id: 5,  name: 'Burkes',                     category: 'diffusion', kind: 'error',  param: 4,   cell: 0, angle: 0,    description: '2-row 7-tap fast diffusion /32' },
+  { id: 6,  name: 'Sierra',                     category: 'diffusion', kind: 'error',  param: 5,   cell: 0, angle: 0,    description: 'Sierra-3, 3-row 10-tap kernel /32' },
+  { id: 7,  name: 'Sierra Two Row',             category: 'diffusion', kind: 'error',  param: 6,   cell: 0, angle: 0,    description: 'Sierra-2, 2-row 7-tap kernel /16' },
+  { id: 8,  name: 'Sierra Lite',                category: 'diffusion', kind: 'error',  param: 7,   cell: 0, angle: 0,    description: 'Sierra Lite 2-1-1 /4' },
+  { id: 9,  name: 'Fan',                        category: 'diffusion', kind: 'error',  param: 8,   cell: 0, angle: 0,    description: 'Fan kernel 7 / 1-3-5 (/16)' },
+  { id: 10, name: 'Shiau-Fan',                  category: 'diffusion', kind: 'error',  param: 9,   cell: 0, angle: 0,    description: 'Shiau-Fan wide fan kernel (/16)' },
+  { id: 11, name: 'Skip Neighbours',            category: 'diffusion', kind: 'error',  param: 10,  cell: 0, angle: 0,    description: '2-px step woven cluster error diffusion' },
+  { id: 12, name: 'Skip1 Neighbours',           category: 'diffusion', kind: 'error',  param: 11,  cell: 0, angle: 0,    description: '3-px step structured stipple diffusion' },
+  { id: 13, name: 'Skip2 Neighbours',           category: 'diffusion', kind: 'error',  param: 12,  cell: 0, angle: 0,    description: '4-px step cross-weave diffusion' },
+  { id: 14, name: 'Xerox Grain',                category: 'diffusion', kind: 'error',  param: 1792,cell: 0, angle: 0,    description: 'Photocopy toner edge boost + grainy serpentine diffusion' },
 
-  // BAYER & ORDERED
-  { id: 15, name: 'Bayer 2x2', category: 'BAYER', kind: 'bayer', param: 2, desc: 'Coarse 2x2 ordered crosshatch threshold matrix' },
-  { id: 16, name: 'Bayer 4x4', category: 'BAYER', kind: 'bayer', param: 4, desc: 'Classic 4x4 ordered dither matrix (Game Boy style)' },
-  { id: 17, name: 'Bayer 8x8', category: 'BAYER', kind: 'bayer', param: 8, desc: 'Fine 8x8 ordered dither matrix for detailed tonal ramps' },
-  { id: 18, name: 'Bayer 16x16', category: 'BAYER', kind: 'bayer', param: 16, desc: 'Ultra-fine 16x16 ordered dither with 256 tone steps' },
+  { id: 15, name: 'Bayer 2x2',                  category: 'ordered',   kind: 'bayer',  param: 2,   cell: 0, angle: 0,    description: 'Ordered dither, 2x2 Bayer threshold matrix' },
+  { id: 16, name: 'Bayer 4x4',                  category: 'ordered',   kind: 'bayer',  param: 4,   cell: 0, angle: 0,    description: 'Ordered dither, 4x4 Bayer threshold matrix' },
+  { id: 17, name: 'Bayer 8x8',                  category: 'ordered',   kind: 'bayer',  param: 8,   cell: 0, angle: 0,    description: 'Ordered dither, 8x8 Bayer threshold matrix' },
+  { id: 18, name: 'Bayer 16x16',                category: 'ordered',   kind: 'bayer',  param: 16,  cell: 0, angle: 0,    description: 'Ordered dither, 16x16 Bayer threshold matrix' },
+  { id: 19, name: 'Blue Noise',                 category: 'stochastic',kind: 'blue',   param: 0,   cell: 0, angle: 0,    description: 'Isotropic high-frequency blue-noise field' },
+  { id: 20, name: 'Interleaved Gradient Noise', category: 'stochastic',kind: 'ign',    param: 0,   cell: 0, angle: 0,    description: 'Jimenez spiral interleaved gradient noise' },
+  { id: 21, name: 'White Noise',                category: 'stochastic',kind: 'white',  param: 0,   cell: 0, angle: 0,    description: 'Stochastic random threshold per cell' },
 
-  // NOISE & STOCHASTIC
-  { id: 19, name: 'Blue Noise', category: 'NOISE', kind: 'blue', param: 0, desc: 'Isotropic high-frequency blue-noise field with zero low-frequency clumping' },
-  { id: 20, name: 'Interleaved Gradient Noise', category: 'NOISE', kind: 'ign', param: 0, desc: 'Jorge Jimenez high-speed interleaved spiral gradient noise' },
-  { id: 21, name: 'White Noise', category: 'NOISE', kind: 'white', param: 0, desc: 'True stochastic random threshold per dither cell' },
-
-  // HALFTONE
-  { id: 22, name: 'Halftone', category: 'HALFTONE', kind: 'screen', param: 0, cell: 8, angle: 0, desc: 'Orthogonal round-dot halftone print screen (0 deg)' },
-  { id: 23, name: 'Halftone 22.5°', category: 'HALFTONE', kind: 'screen', param: 0, cell: 8, angle: 22.5, desc: 'Round-dot halftone rotated 22.5 deg to avoid moire' },
-  { id: 24, name: 'Halftone 45°', category: 'HALFTONE', kind: 'screen', param: 0, cell: 8, angle: 45, desc: 'Traditional newspaper round-dot halftone screen (45 deg)' },
-  { id: 25, name: 'Matrix', category: 'PATTERN', kind: 'screen', param: 0, cell: 4, angle: 45, desc: 'Fine CRT/LED sub-pixel dot matrix screen' },
-  { id: 26, name: 'Square Halftone', category: 'MOSAIC', kind: 'screen', param: 1, cell: 8, angle: 0, desc: 'Crisp expanding square-dot geometric screen' },
-  { id: 27, name: 'Mosaic Halftone', category: 'MOSAIC', kind: 'screen', param: 2, cell: 6, angle: 0, desc: 'Beveled cushion mosaic tile screen' },
-  { id: 28, name: 'Rekt Block', category: 'PATTERN', kind: 'screen', param: 3, cell: 8, angle: 0, desc: 'Staggered 2:1 rectangular brick screen' },
-
-  // MODULATION & SCANLINES
-  { id: 29, name: 'Row Modulation', category: 'MODULATION', kind: 'screen', param: 4, cell: 4, angle: 0, desc: 'Fine horizontal scanline pulse-width modulation' },
-  { id: 30, name: 'Medium Modulation', category: 'MODULATION', kind: 'screen', param: 5, cell: 6, angle: 0, desc: 'Notched CRT slot-mask horizontal modulation' },
-  { id: 31, name: 'Heavy Modulation', category: 'MODULATION', kind: 'screen', param: 6, cell: 9, angle: 0, desc: 'Bold serrated horizontal beam screen' },
-  { id: 32, name: 'Column Modulation', category: 'MODULATION', kind: 'screen', param: 7, cell: 5, angle: 0, desc: 'Vertical aperture-grille bar modulation' },
-  { id: 33, name: 'Tilt Modulation', category: 'MODULATION', kind: 'screen', param: 8, cell: 6, angle: 0, desc: '+45 deg copperplate engraving diagonal line screen' },
-  { id: 34, name: 'Bitslash', category: 'PATTERN', kind: 'screen', param: 9, cell: 5, angle: 0, desc: '-45 deg stepped 8-bit slash screen' },
-  { id: 35, name: 'Variable Hatch', category: 'PATTERN', kind: 'screen', param: 10, cell: 8, angle: 0, desc: 'Woodcut cross-hatching (single to double cross-hatch)' },
-  { id: 36, name: 'Grid Modulation', category: 'MODULATION', kind: 'screen', param: 11, cell: 7, angle: 0, desc: 'Expanding orthogonal wireframe mesh screen' },
-  { id: 37, name: 'Cyber', category: 'OTHER', kind: 'screen', param: 12, cell: 8, angle: 0, desc: 'Octagonal cyberpunk tech-cell matrix with corner nodes' },
-  { id: 38, name: 'Cross Square', category: 'PATTERN', kind: 'screen', param: 13, cell: 7, angle: 0, desc: 'Expanding plus-cross clusters' },
-  { id: 39, name: 'Diamond', category: 'OTHER', kind: 'screen', param: 14, cell: 8, angle: 0, desc: 'Manhattan-distance diamond clusters' },
-  { id: 40, name: 'Star', category: 'OTHER', kind: 'screen', param: 15, cell: 9, angle: 0, desc: 'Concave 4-pointed astroid star clusters' },
-  { id: 41, name: 'Bytewav', category: 'OTHER', kind: 'screen', param: 16, cell: 8, angle: 0, desc: 'Frequency-modulated sine-wave line screen' },
-  { id: 42, name: 'Z-Modulation', category: 'MODULATION', kind: 'screen', param: 17, cell: 8, angle: 0, desc: 'Chevron herringbone zig-zag screen' },
-  { id: 43, name: 'Circuit Modulation', category: 'MODULATION', kind: 'screen', param: 18, cell: 10, angle: 0, desc: 'PCB concentric tracks and solder pads' },
-  { id: 44, name: 'Vertical Stitch', category: 'OTHER', kind: 'screen', param: 19, cell: 6, angle: 0, desc: 'Staggered vertical embroidery stitch pattern' },
-  { id: 45, name: 'Horizontal Stitch', category: 'OTHER', kind: 'screen', param: 20, cell: 6, angle: 0, desc: 'Staggered horizontal running stitch pattern' },
-  { id: 46, name: 'Clock', category: 'OTHER', kind: 'screen', param: 21, cell: 10, angle: 0, desc: 'Radial pinwheel sector sweep screen' },
-  { id: 47, name: 'Bi-thread', category: 'OTHER', kind: 'screen', param: 22, cell: 7, angle: 0, desc: 'Over-under twill basketweave texture' },
-  { id: 48, name: 'Knit', category: 'PATTERN', kind: 'screen', param: 23, cell: 7, angle: 0, desc: 'V-shaped jersey knit stitch loops' },
+  { id: 22, name: 'Halftone (0°)',              category: 'screens',   kind: 'screen', param: 0,   cell: 8, angle: 0,    description: 'Classic round-dot halftone screen, 0 deg' },
+  { id: 23, name: 'Halftone 22.5°',             category: 'screens',   kind: 'screen', param: 0,   cell: 8, angle: 22.5, description: 'Round-dot halftone screen, 22.5 deg' },
+  { id: 24, name: 'Halftone 45°',               category: 'screens',   kind: 'screen', param: 0,   cell: 8, angle: 45,   description: 'Round-dot newspaper halftone screen, 45 deg' },
+  { id: 25, name: 'Matrix',                     category: 'screens',   kind: 'screen', param: 0,   cell: 4, angle: 45,   description: 'Fine LED / CRT dot matrix, 45 deg' },
+  { id: 26, name: 'Square Halftone',            category: 'screens',   kind: 'screen', param: 1,   cell: 8, angle: 0,    description: 'Crisp expanding square-dot screen' },
+  { id: 27, name: 'Mosaic Halftone',            category: 'screens',   kind: 'screen', param: 2,   cell: 6, angle: 0,    description: 'Beveled cushion mosaic tile screen' },
+  { id: 28, name: 'Rekt Block',                 category: 'screens',   kind: 'screen', param: 3,   cell: 8, angle: 0,    description: 'Staggered 2:1 rectangular brick screen' },
+  { id: 29, name: 'Row Modulation',             category: 'screens',   kind: 'screen', param: 4,   cell: 4, angle: 0,    description: 'Fine horizontal scanline PWM screen' },
+  { id: 30, name: 'Medium Modulation',          category: 'screens',   kind: 'screen', param: 5,   cell: 6, angle: 0,    description: 'Notched CRT slot-mask horizontal modulation' },
+  { id: 31, name: 'Heavy Modulation',           category: 'screens',   kind: 'screen', param: 6,   cell: 9, angle: 0,    description: 'Bold serrated horizontal bar screen' },
+  { id: 32, name: 'Column Modulation',          category: 'screens',   kind: 'screen', param: 7,   cell: 5, angle: 0,    description: 'Vertical aperture-grille bar modulation' },
+  { id: 33, name: 'Tilt Modulation',            category: 'screens',   kind: 'screen', param: 8,   cell: 6, angle: 0,    description: '+45 deg engraving diagonal line screen' },
+  { id: 34, name: 'Bitslash',                   category: 'screens',   kind: 'screen', param: 9,   cell: 5, angle: 0,    description: '-45 deg stepped bit-slash screen' },
+  { id: 35, name: 'Variable Hatch',             category: 'screens',   kind: 'screen', param: 10,  cell: 8, angle: 0,    description: 'Woodcut cross-hatching (single to double hatch)' },
+  { id: 36, name: 'Grid Modulation',            category: 'screens',   kind: 'screen', param: 11,  cell: 7, angle: 0,    description: 'Expanding orthogonal wireframe mesh screen' },
+  { id: 37, name: 'Cyber',                      category: 'screens',   kind: 'screen', param: 12,  cell: 8, angle: 0,    description: 'Octagonal tech-cell matrix with corner nodes' },
+  { id: 38, name: 'Cross Square',               category: 'screens',   kind: 'screen', param: 13,  cell: 7, angle: 0,    description: 'Expanding plus-cross clusters' },
+  { id: 39, name: 'Diamond',                    category: 'screens',   kind: 'screen', param: 14,  cell: 8, angle: 0,    description: 'Manhattan-distance diamond clusters' },
+  { id: 40, name: 'Star',                       category: 'screens',   kind: 'screen', param: 15,  cell: 9, angle: 0,    description: 'Concave 4-pointed astroid star clusters' },
+  { id: 41, name: 'Bytewav',                    category: 'screens',   kind: 'screen', param: 16,  cell: 8, angle: 0,    description: 'FM sine-wave line modulation' },
+  { id: 42, name: 'Z-Modulation',               category: 'screens',   kind: 'screen', param: 17,  cell: 8, angle: 0,    description: 'Chevron herringbone zig-zag screen' },
+  { id: 43, name: 'Circuit Modulation',         category: 'screens',   kind: 'screen', param: 18,  cell: 10,angle: 0,    description: 'PCB concentric tracks and solder pads' },
+  { id: 44, name: 'Vertical Stitch',            category: 'screens',   kind: 'screen', param: 19,  cell: 6, angle: 0,    description: 'Staggered vertical embroidery stitch' },
+  { id: 45, name: 'Horizontal Stitch',          category: 'screens',   kind: 'screen', param: 20,  cell: 6, angle: 0,    description: 'Staggered horizontal running stitch' },
+  { id: 46, name: 'Clock',                      category: 'screens',   kind: 'screen', param: 21,  cell: 10,angle: 0,    description: 'Radial pinwheel sector sweep' },
+  { id: 47, name: 'Bi-thread',                  category: 'screens',   kind: 'screen', param: 22,  cell: 7, angle: 0,    description: 'Over-under twill basketweave' },
+  { id: 48, name: 'Knit',                       category: 'screens',   kind: 'screen', param: 23,  cell: 7, angle: 0,    description: 'V-shaped jersey knit stitch loops' },
 ];
 
-// Helper fast hash
-function hashU32(x: number): number {
+// Hash utilities
+function hash_u32(x: number): number {
   x = Math.imul(x ^ (x >>> 16), 0x7feb352d);
   x = Math.imul(x ^ (x >>> 15), 0x846ca68b);
   return (x ^ (x >>> 16)) >>> 0;
 }
 
 function hash3(a: number, b: number, c: number): number {
-  const h1 = Math.imul(a, 0x9e3779b1) ^ hashU32(b + (0x85ebca6b ^ hashU32(c + 0xc2b2ae35)));
-  return hashU32(h1);
+  const h1 = Math.imul(a >>> 0, 0x9E3779B1) >>> 0;
+  const h2 = Math.imul(b ^ 0x85ebca6b, 1) >>> 0;
+  const h3 = (c + 0xc2b2ae35) >>> 0;
+  return hash_u32(h1 ^ hash_u32(h2 ^ hash_u32(h3)));
 }
 
 function u01(h: number): number {
-  return (h >>> 8) * (1.0 / 16777216.0);
+  return ((h >>> 8) & 0xffffff) * (1.0 / 16777216.0);
 }
 
 function clamp(v: number, min: number, max: number): number {
@@ -93,210 +87,74 @@ function luma709(r: number, g: number, b: number): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-// ---------------------------------------------------------------------------
-// SPOT FUNCTIONS (continuous 2D spot mathematical representations)
-// ---------------------------------------------------------------------------
-function spotFunction(id: number, fu: number, fv: number, pu: number, pv: number): number {
-  const du = fu - 0.5;
-  const dv = fv - 0.5;
-  const par = (pu + pv) & 1;
-  const tri = (t: number) => {
-    t = t - Math.floor(t);
-    return 1.0 - Math.abs(2.0 * t - 1.0);
-  };
-  const frac1 = (t: number) => t - Math.floor(t);
-
-  switch (id) {
-    case 0: { // S_DOT
-      const d1 = Math.sqrt(du * du + dv * dv);
-      const c2u = (fu < 0.5 ? fu + 0.5 : fu - 0.5) - 0.5;
-      const c2v = (fv < 0.5 ? fv + 0.5 : fv - 0.5) - 0.5;
-      const d2 = Math.sqrt(c2u * c2u + c2v * c2v);
-      return 0.5 + (d1 - d2) * 0.7071;
-    }
-    case 1: // S_SQUARE
-      return Math.max(Math.abs(du), Math.abs(dv)) * 2.0;
-
-    case 2: { // S_MOSAIC
-      const bx = Math.abs(du) * 2.0;
-      const by = Math.abs(dv) * 2.0;
-      const edge = Math.max(bx, by);
-      const dome = Math.sqrt(du * du + dv * dv) * 1.4;
-      return edge > 0.82 ? 0.95 + (edge - 0.82) : 0.45 * edge + 0.55 * dome;
-    }
-    case 3: { // S_RECT
-      const bu = frac1(fu + (pv ? 0.5 : 0.0)) - 0.5;
-      return Math.max(Math.abs(bu) * 1.5, Math.abs(dv) * 2.4);
-    }
-    case 4: // S_LINEH
-      return Math.abs(dv) * 2.0 + 0.04 * tri(fu);
-
-    case 5: { // S_LINEMED
-      const su = frac1(fu + (pv ? 0.5 : 0.0));
-      const bridge = su > 0.82 ? (0.32 * (su - 0.82)) / 0.18 : 0.0;
-      return Math.abs(dv) * 1.85 + bridge;
-    }
-    case 6: { // S_LINEHEAVY
-      const wave = 0.14 * (tri(fu * 2.0) - 0.5);
-      return Math.abs(dv + wave) * 1.8;
-    }
-    case 7: // S_LINEV
-      return Math.abs(du) * 2.0 + 0.04 * tri(fv);
-
-    case 8: // S_DIAG
-      return Math.abs(frac1((fu + pu + fv + pv) * 0.5) - 0.5) * 2.0;
-
-    case 9: { // S_DIAG2 (Bitslash)
-      const slash = Math.abs(frac1((fu + pu - (fv + pv)) * 0.5) - 0.5) * 2.0;
-      const notch = 0.15 * tri((fu + pu + fv + pv) * 1.5);
-      return slash * 0.88 + notch;
-    }
-    case 10: { // S_HATCH
-      const d1 = Math.abs(frac1((fu + pu + fv + pv) * 0.5) - 0.5) * 2.0;
-      const d2 = Math.abs(frac1((fu + pu - (fv + pv)) * 0.5) - 0.5) * 2.0;
-      return d1 < 0.45 ? d1 * 1.1 : 0.5 + 0.5 * Math.min(d1, d2);
-    }
-    case 11: // S_GRID
-      return Math.min(Math.min(fu, 1.0 - fu), Math.min(fv, 1.0 - fv)) * 2.0;
-
-    case 12: { // S_CYBER
-      const ax = Math.abs(du) * 2.0;
-      const ay = Math.abs(dv) * 2.0;
-      const oct = Math.max(Math.max(ax, ay), (ax + ay) * 0.72);
-      const ring = Math.abs(oct - 0.68) * 2.2;
-      const core = (ax + ay) * 1.4;
-      return Math.min(ring, core + 0.25);
-    }
-    case 13: { // S_CROSS
-      const arm = Math.min(Math.abs(du), Math.abs(dv)) * 2.4;
-      const span = Math.max(Math.abs(du), Math.abs(dv)) * 0.65;
-      return arm + span;
-    }
-    case 14: // S_DIAMOND
-      return Math.abs(du) + Math.abs(dv);
-
-    case 15: { // S_STAR
-      const a = Math.pow(Math.abs(du) + 1e-4, 0.55) + Math.pow(Math.abs(dv) + 1e-4, 0.55);
-      return a * a * 0.85;
-    }
-    case 16: { // S_WAVE (Bytewav)
-      const u2 = (fu + pu) * 0.5;
-      const w = 0.28 * Math.sin(6.2831853 * u2);
-      return Math.abs(frac1(fv + w) - 0.5) * 2.0;
-    }
-    case 17: { // S_ZIGZAG
-      const u2 = (fu + pu) * 0.5;
-      const z = 0.38 * (tri(u2 * 2.0) - 0.5);
-      return Math.abs(frac1(fv + z) - 0.5) * 2.0;
-    }
-    case 18: { // S_CIRCUIT
-      const r = Math.max(Math.abs(du), Math.abs(dv)) * 2.0;
-      const target = par ? 0.32 : 0.68;
-      const trace = Math.abs(r - target) * 2.6;
-      const pad = Math.max(Math.abs(du), Math.abs(dv)) * 3.5;
-      return par ? Math.min(trace, pad) : trace;
-    }
-    case 19: { // S_STITCHV
-      const sv = frac1(fv + (pu ? 0.5 : 0.0));
-      const gap = sv > 0.72 ? (sv - 0.72) * 2.5 : 0.0;
-      return Math.abs(du) * 1.9 + gap;
-    }
-    case 20: { // S_STITCHH
-      const su = frac1(fu + (pv ? 0.5 : 0.0));
-      const gap = su > 0.72 ? (su - 0.72) * 2.5 : 0.0;
-      return Math.abs(dv) * 1.9 + gap;
-    }
-    case 21: { // S_CLOCK
-      const ang = Math.atan2(dv, du) * 0.15915494 + 0.5;
-      const rad = Math.sqrt(du * du + dv * dv) * 1.414;
-      const blades = tri(ang * 4.0 + (par ? 0.25 : 0.0) + rad * 0.35);
-      return 0.65 * blades + 0.35 * rad;
-    }
-    case 22: { // S_BITHREAD
-      const d1 = Math.abs(frac1(fu + fv) - 0.5) * 2.0;
-      const d2 = Math.abs(frac1(fu - fv) - 0.5) * 2.0;
-      return par ? 0.75 * d1 + 0.25 * d2 : 0.25 * d1 + 0.75 * d2;
-    }
-    case 23: { // S_KNIT
-      const vloop = fv + Math.abs(du) * 1.35 - 0.32;
-      const d1 = Math.abs(frac1(vloop) - 0.5) * 2.0;
-      const rib = Math.abs(du) * 0.55;
-      return d1 * 0.78 + rib * 0.22;
-    }
+// Parse hex to [r, g, b] in [0, 1]
+export function hexToRgb(hex: string): [number, number, number] {
+  let c = hex.replace('#', '');
+  if (c.length === 3) {
+    c = c.split('').map(char => char + char).join('');
   }
-  return 0.5;
+  const num = parseInt(c, 16);
+  return [
+    ((num >> 16) & 255) / 255,
+    ((num >> 8) & 255) / 255,
+    (num & 255) / 255,
+  ];
 }
 
-// Cache of built screen maps (64x64 rank normalized)
-const screenMapCache = new Map<number, Float32Array>();
+// Error diffusion kernels
+interface Tap { dx: number; dy: number; w: number; }
+interface Kernel { ntaps: number; taps: Tap[]; }
 
-function getScreenMap(id: number): Float32Array {
-  if (screenMapCache.has(id)) {
-    return screenMapCache.get(id)!;
-  }
-  const M = 64;
-  const raw = new Float32Array(M * M);
-  const indices = new Int32Array(M * M);
+const KERNELS: Kernel[] = [
+  // 0: Floyd-Steinberg / 16
+  { ntaps: 4, taps: [{dx:1, dy:0, w:7/16}, {dx:-1, dy:1, w:3/16}, {dx:0, dy:1, w:5/16}, {dx:1, dy:1, w:1/16}] },
+  // 1: Jarvis-Judice-Ninke / 48
+  { ntaps: 12, taps: [
+    {dx:1, dy:0, w:7/48}, {dx:2, dy:0, w:5/48},
+    {dx:-2, dy:1, w:3/48}, {dx:-1, dy:1, w:5/48}, {dx:0, dy:1, w:7/48}, {dx:1, dy:1, w:5/48}, {dx:2, dy:1, w:3/48},
+    {dx:-2, dy:2, w:1/48}, {dx:-1, dy:2, w:3/48}, {dx:0, dy:2, w:5/48}, {dx:1, dy:2, w:3/48}, {dx:2, dy:2, w:1/48}
+  ] },
+  // 2: Stucki / 42
+  { ntaps: 12, taps: [
+    {dx:1, dy:0, w:8/42}, {dx:2, dy:0, w:4/42},
+    {dx:-2, dy:1, w:2/42}, {dx:-1, dy:1, w:4/42}, {dx:0, dy:1, w:8/42}, {dx:1, dy:1, w:4/42}, {dx:2, dy:1, w:2/42},
+    {dx:-2, dy:2, w:1/42}, {dx:-1, dy:2, w:2/42}, {dx:0, dy:2, w:4/42}, {dx:1, dy:2, w:2/42}, {dx:2, dy:2, w:1/42}
+  ] },
+  // 3: Atkinson / 8 (high-contrast crispness)
+  { ntaps: 6, taps: [{dx:1, dy:0, w:1/8}, {dx:2, dy:0, w:1/8}, {dx:-1, dy:1, w:1/8}, {dx:0, dy:1, w:1/8}, {dx:1, dy:1, w:1/8}, {dx:0, dy:2, w:1/8}] },
+  // 4: Burkes / 32
+  { ntaps: 7, taps: [
+    {dx:1, dy:0, w:8/32}, {dx:2, dy:0, w:4/32},
+    {dx:-2, dy:1, w:2/32}, {dx:-1, dy:1, w:4/32}, {dx:0, dy:1, w:8/32}, {dx:1, dy:1, w:4/32}, {dx:2, dy:1, w:2/32}
+  ] },
+  // 5: Sierra-3 / 32
+  { ntaps: 10, taps: [
+    {dx:1, dy:0, w:5/32}, {dx:2, dy:0, w:3/32},
+    {dx:-2, dy:1, w:2/32}, {dx:-1, dy:1, w:4/32}, {dx:0, dy:1, w:5/32}, {dx:1, dy:1, w:4/32}, {dx:2, dy:1, w:2/32},
+    {dx:-1, dy:2, w:2/32}, {dx:0, dy:2, w:3/32}, {dx:1, dy:2, w:2/32}
+  ] },
+  // 6: Sierra-2 / 16
+  { ntaps: 7, taps: [
+    {dx:1, dy:0, w:4/16}, {dx:2, dy:0, w:3/16},
+    {dx:-2, dy:1, w:1/16}, {dx:-1, dy:1, w:2/16}, {dx:0, dy:1, w:3/16}, {dx:1, dy:1, w:2/16}, {dx:2, dy:1, w:1/16}
+  ] },
+  // 7: Sierra Lite / 4
+  { ntaps: 3, taps: [{dx:1, dy:0, w:2/4}, {dx:-1, dy:1, w:1/4}, {dx:0, dy:1, w:1/4}] },
+  // 8: Fan / 16
+  { ntaps: 4, taps: [{dx:1, dy:0, w:7/16}, {dx:-2, dy:1, w:1/16}, {dx:-1, dy:1, w:3/16}, {dx:0, dy:1, w:5/16}] },
+  // 9: Shiau-Fan / 16
+  { ntaps: 5, taps: [{dx:1, dy:0, w:8/16}, {dx:-3, dy:1, w:1/16}, {dx:-2, dy:1, w:1/16}, {dx:-1, dy:1, w:2/16}, {dx:0, dy:1, w:4/16}] },
+  // 10: Skip Neighbours
+  { ntaps: 4, taps: [{dx:2, dy:0, w:7/16}, {dx:-2, dy:2, w:3/16}, {dx:0, dy:2, w:5/16}, {dx:2, dy:2, w:1/16}] },
+  // 11: Skip1 Neighbours
+  { ntaps: 5, taps: [{dx:3, dy:0, w:6/16}, {dx:-3, dy:2, w:3/16}, {dx:0, dy:3, w:4/16}, {dx:3, dy:2, w:2/16}, {dx:0, dy:1, w:1/16}] },
+  // 12: Skip2 Neighbours
+  { ntaps: 5, taps: [{dx:4, dy:0, w:6/16}, {dx:-4, dy:3, w:3/16}, {dx:0, dy:4, w:4/16}, {dx:4, dy:3, w:2/16}, {dx:2, dy:1, w:1/16}] },
+];
 
-  for (let y = 0; y < M; ++y) {
-    for (let x = 0; x < M; ++x) {
-      const u2 = (x + 0.5) * (2.0 / M);
-      const v2 = (y + 0.5) * (2.0 / M);
-      let pu = Math.floor(u2);
-      if (pu > 1) pu = 1;
-      let pv = Math.floor(v2);
-      if (pv > 1) pv = 1;
-      const fu = u2 - pu;
-      const fv = v2 - pv;
-      const tie = (u01(hash3(x, y, 0x5c8ee4)) - 0.5) * 1e-4;
-      const val = spotFunction(id, fu, fv, pu, pv) + tie;
-      const idx = y * M + x;
-      raw[idx] = val;
-      indices[idx] = idx;
-    }
-  }
-
-  // Rank normalize
-  const sorted = Array.from(indices).sort((a, b) => raw[a] - raw[b]);
-  const sm = new Float32Array(M * M);
-  const invN = 1.0 / (M * M);
-  for (let r = 0; r < sorted.length; ++r) {
-    sm[sorted[r]] = 1.0 - (r + 0.5) * invN;
-  }
-
-  screenMapCache.set(id, sm);
-  return sm;
-}
-
-function sampleScreenMap(sm: Float32Array, u2: number, v2: number): number {
-  let tu = u2 * 0.5;
-  tu = tu - Math.floor(tu);
-  let tv = v2 * 0.5;
-  tv = tv - Math.floor(tv);
-
-  const fx = clamp(tu * 64.0 - 0.5, 0, 63.999);
-  const fy = clamp(tv * 64.0 - 0.5, 0, 63.999);
-  const x0 = Math.floor(fx) & 63;
-  const y0 = Math.floor(fy) & 63;
-  const x1 = (x0 + 1) & 63;
-  const y1 = (y0 + 1) & 63;
-
-  const dx = fx - Math.floor(fx);
-  const dy = fy - Math.floor(fy);
-
-  const a = sm[y0 * 64 + x0];
-  const b = sm[y0 * 64 + x1];
-  const c = sm[y1 * 64 + x0];
-  const d = sm[y1 * 64 + x1];
-
-  return lerp(lerp(a, b, dx), lerp(c, d, dx), dy);
-}
-
-// ---------------------------------------------------------------------------
-// BAYER MATRIX
-// ---------------------------------------------------------------------------
+// Bayer matrix threshold calculation
 function bayerThreshold(x: number, y: number, n: number): number {
-  const bits = n <= 2 ? 1 : n <= 4 ? 2 : n <= 8 ? 3 : 4;
+  const bits = (n <= 2) ? 1 : (n <= 4) ? 2 : (n <= 8) ? 3 : 4;
   const mask = (1 << bits) - 1;
   const ux = x & mask;
   const uy = y & mask;
@@ -311,368 +169,386 @@ function bayerThreshold(x: number, y: number, n: number): number {
   return (val + 0.5) / total;
 }
 
-// ---------------------------------------------------------------------------
-// BLUE NOISE APPROXIMATION
-// ---------------------------------------------------------------------------
+// Blue noise isotropic threshold approximation
 function blueNoiseThreshold(x: number, y: number, seed: number): number {
   const ux = ((x % 64) + 64) % 64;
   const uy = ((y % 64) + 64) % 64;
-
   const cellR2 = (cx: number, cy: number) => {
     cx = (cx + 64) & 63;
     cy = (cy + 64) & 63;
     const q = cx * 0.7548776662466927 + cy * 0.5698402909980532;
     const r2 = q - Math.floor(q);
-    const h = u01(hash3(cx, cy, seed ^ 0xb10e64));
+    const h = u01(hash3(cx, cy, seed ^ 0xB10E64));
     return 0.65 * r2 + 0.35 * h;
   };
-
   const c0 = cellR2(ux, uy);
   let neigh = cellR2(ux - 1, uy) + cellR2(ux + 1, uy) + cellR2(ux, uy - 1) + cellR2(ux, uy + 1);
   neigh += 0.707 * (cellR2(ux - 1, uy - 1) + cellR2(ux + 1, uy - 1) + cellR2(ux - 1, uy + 1) + cellR2(ux + 1, uy + 1));
   neigh /= 6.828;
-
   const hp = (c0 - neigh) * 2.65;
   const cdf = 0.5 + 0.5 * Math.tanh(hp * 1.15);
   let u = c0 + 0.5 * (c0 - neigh);
-  u = u - Math.floor(u);
+  u -= Math.floor(u);
   return clamp(0.55 * cdf + 0.45 * u, 0.001, 0.999);
 }
 
-// ---------------------------------------------------------------------------
-// ERROR DIFFUSION KERNELS
-// ---------------------------------------------------------------------------
-interface Tap { dx: number; dy: number; w: number; }
-const ERROR_KERNELS: Tap[][] = [
-  // 0: Floyd-Steinberg
-  [
-    { dx: 1, dy: 0, w: 7 / 16 },
-    { dx: -1, dy: 1, w: 3 / 16 },
-    { dx: 0, dy: 1, w: 5 / 16 },
-    { dx: 1, dy: 1, w: 1 / 16 }
-  ],
-  // 1: Jarvis-Judice-Ninke
-  [
-    { dx: 1, dy: 0, w: 7 / 48 }, { dx: 2, dy: 0, w: 5 / 48 },
-    { dx: -2, dy: 1, w: 3 / 48 }, { dx: -1, dy: 1, w: 5 / 48 }, { dx: 0, dy: 1, w: 7 / 48 }, { dx: 1, dy: 1, w: 5 / 48 }, { dx: 2, dy: 1, w: 3 / 48 },
-    { dx: -2, dy: 2, w: 1 / 48 }, { dx: -1, dy: 2, w: 3 / 48 }, { dx: 0, dy: 2, w: 5 / 48 }, { dx: 1, dy: 2, w: 3 / 48 }, { dx: 2, dy: 2, w: 1 / 48 }
-  ],
-  // 2: Stucki
-  [
-    { dx: 1, dy: 0, w: 8 / 42 }, { dx: 2, dy: 0, w: 4 / 42 },
-    { dx: -2, dy: 1, w: 2 / 42 }, { dx: -1, dy: 1, w: 4 / 42 }, { dx: 0, dy: 1, w: 8 / 42 }, { dx: 1, dy: 1, w: 4 / 42 }, { dx: 2, dy: 1, w: 2 / 42 },
-    { dx: -2, dy: 2, w: 1 / 42 }, { dx: -1, dy: 2, w: 2 / 42 }, { dx: 0, dy: 2, w: 4 / 42 }, { dx: 1, dy: 2, w: 2 / 42 }, { dx: 2, dy: 2, w: 1 / 42 }
-  ],
-  // 3: Atkinson
-  [
-    { dx: 1, dy: 0, w: 1 / 8 }, { dx: 2, dy: 0, w: 1 / 8 },
-    { dx: -1, dy: 1, w: 1 / 8 }, { dx: 0, dy: 1, w: 1 / 8 }, { dx: 1, dy: 1, w: 1 / 8 },
-    { dx: 0, dy: 2, w: 1 / 8 }
-  ],
-  // 4: Burkes
-  [
-    { dx: 1, dy: 0, w: 8 / 32 }, { dx: 2, dy: 0, w: 4 / 32 },
-    { dx: -2, dy: 1, w: 2 / 32 }, { dx: -1, dy: 1, w: 4 / 32 }, { dx: 0, dy: 1, w: 8 / 32 }, { dx: 1, dy: 1, w: 4 / 32 }, { dx: 2, dy: 1, w: 2 / 32 }
-  ],
-  // 5: Sierra (Sierra-3)
-  [
-    { dx: 1, dy: 0, w: 5 / 32 }, { dx: 2, dy: 0, w: 3 / 32 },
-    { dx: -2, dy: 1, w: 2 / 32 }, { dx: -1, dy: 1, w: 4 / 32 }, { dx: 0, dy: 1, w: 5 / 32 }, { dx: 1, dy: 1, w: 4 / 32 }, { dx: 2, dy: 1, w: 2 / 32 },
-    { dx: -1, dy: 2, w: 2 / 32 }, { dx: 0, dy: 2, w: 3 / 32 }, { dx: 1, dy: 2, w: 2 / 32 }
-  ],
-  // 6: Sierra Two Row
-  [
-    { dx: 1, dy: 0, w: 4 / 16 }, { dx: 2, dy: 0, w: 3 / 16 },
-    { dx: -2, dy: 1, w: 1 / 16 }, { dx: -1, dy: 1, w: 2 / 16 }, { dx: 0, dy: 1, w: 3 / 16 }, { dx: 1, dy: 1, w: 2 / 16 }, { dx: 2, dy: 1, w: 1 / 16 }
-  ],
-  // 7: Sierra Lite
-  [
-    { dx: 1, dy: 0, w: 2 / 4 },
-    { dx: -1, dy: 1, w: 1 / 4 },
-    { dx: 0, dy: 1, w: 1 / 4 }
-  ],
-  // 8: Fan
-  [
-    { dx: 1, dy: 0, w: 7 / 16 },
-    { dx: -2, dy: 1, w: 1 / 16 },
-    { dx: -1, dy: 1, w: 3 / 16 },
-    { dx: 0, dy: 1, w: 5 / 16 }
-  ],
-  // 9: Shiau-Fan
-  [
-    { dx: 1, dy: 0, w: 8 / 16 },
-    { dx: -3, dy: 1, w: 1 / 16 },
-    { dx: -2, dy: 1, w: 1 / 16 },
-    { dx: -1, dy: 1, w: 2 / 16 },
-    { dx: 0, dy: 1, w: 4 / 16 }
-  ],
-  // 10: Skip Neighbours
-  [
-    { dx: 2, dy: 0, w: 7 / 16 },
-    { dx: -2, dy: 2, w: 3 / 16 },
-    { dx: 0, dy: 2, w: 5 / 16 },
-    { dx: 2, dy: 2, w: 1 / 16 }
-  ],
-  // 11: Skip1 Neighbours
-  [
-    { dx: 3, dy: 0, w: 6 / 16 },
-    { dx: -3, dy: 2, w: 3 / 16 },
-    { dx: 0, dy: 3, w: 4 / 16 },
-    { dx: 3, dy: 2, w: 2 / 16 },
-    { dx: 0, dy: 1, w: 1 / 16 }
-  ],
-  // 12: Skip2 Neighbours
-  [
-    { dx: 4, dy: 0, w: 6 / 16 },
-    { dx: -4, dy: 3, w: 3 / 16 },
-    { dx: 0, dy: 4, w: 4 / 16 },
-    { dx: 4, dy: 3, w: 2 / 16 },
-    { dx: 2, dy: 1, w: 1 / 16 }
-  ]
-];
+// Continuous spot function evaluated for halftone screens
+function spot(id: number, fu: number, fv: number, pu: number, pv: number): number {
+  const par = (pu + pv) & 1;
+  const du = fu - 0.5;
+  const dv = fv - 0.5;
+  const tri = (t: number) => { t -= Math.floor(t); return 1 - Math.abs(2 * t - 1); };
+  const frac1 = (t: number) => t - Math.floor(t);
 
-// ---------------------------------------------------------------------------
-// PRE-PROCESSING FILTERS
-// ---------------------------------------------------------------------------
-export function applyLevels(data: Uint8ClampedArray, width: number, height: number, levels: LevelsConfig) {
-  const lut = new Uint8Array(256);
-  const inLow = levels.shadow;
-  const inHigh = levels.highlight;
-  const gamma = Math.max(0.1, levels.mid);
-  const outLow = levels.blackClip;
-  const outHigh = levels.whiteClip;
-  const invGamma = 1.0 / gamma;
-
-  for (let i = 0; i < 256; i++) {
-    // Map inLow..inHigh to 0..1
-    let norm = (i - inLow) / Math.max(1, inHigh - inLow);
-    norm = clamp(norm, 0, 1);
-    // Apply gamma
-    norm = Math.pow(norm, invGamma);
-    // Map to outLow..outHigh
-    const out = outLow + norm * (outHigh - outLow);
-    lut[i] = clamp(Math.round(out), 0, 255);
-  }
-
-  const len = width * height * 4;
-  for (let i = 0; i < len; i += 4) {
-    data[i] = lut[data[i]];
-    data[i + 1] = lut[data[i + 1]];
-    data[i + 2] = lut[data[i + 2]];
+  switch (id) {
+    case 0: { // S_DOT
+      const d1 = Math.sqrt(du * du + dv * dv);
+      const c2u = (fu < 0.5 ? fu + 0.5 : fu - 0.5) - 0.5;
+      const c2v = (fv < 0.5 ? fv + 0.5 : fv - 0.5) - 0.5;
+      const d2 = Math.sqrt(c2u * c2u + c2v * c2v);
+      return 0.5 + (d1 - d2) * 0.7071;
+    }
+    case 1: // S_SQUARE
+      return Math.max(Math.abs(du), Math.abs(dv)) * 2;
+    case 2: { // S_MOSAIC
+      const bx = Math.abs(du) * 2, by = Math.abs(dv) * 2;
+      const edge = Math.max(bx, by);
+      const dome = Math.sqrt(du * du + dv * dv) * 1.4;
+      return edge > 0.82 ? 0.95 + (edge - 0.82) : 0.45 * edge + 0.55 * dome;
+    }
+    case 3: { // S_RECT
+      const bu = frac1(fu + (pv ? 0.5 : 0)) - 0.5;
+      return Math.max(Math.abs(bu) * 1.5, Math.abs(dv) * 2.4);
+    }
+    case 4: // S_LINEH
+      return Math.abs(dv) * 2 + 0.04 * tri(fu);
+    case 5: { // S_LINEMED
+      const su = frac1(fu + (pv ? 0.5 : 0));
+      const bridge = su > 0.82 ? 0.32 * (su - 0.82) / 0.18 : 0;
+      return Math.abs(dv) * 1.85 + bridge;
+    }
+    case 6: { // S_LINEHEAVY
+      const wave = 0.14 * (tri(fu * 2) - 0.5);
+      return Math.abs(dv + wave) * 1.8;
+    }
+    case 7: // S_LINEV
+      return Math.abs(du) * 2 + 0.04 * tri(fv);
+    case 8: // S_DIAG
+      return Math.abs(frac1((fu + pu + fv + pv) * 0.5) - 0.5) * 2;
+    case 9: { // S_DIAG2 (Bitslash)
+      const slash = Math.abs(frac1((fu + pu - (fv + pv)) * 0.5) - 0.5) * 2;
+      const notch = 0.15 * tri((fu + pu + fv + pv) * 1.5);
+      return slash * 0.88 + notch;
+    }
+    case 10: { // S_HATCH
+      const d1 = Math.abs(frac1((fu + pu + fv + pv) * 0.5) - 0.5) * 2;
+      const d2 = Math.abs(frac1((fu + pu - (fv + pv)) * 0.5) - 0.5) * 2;
+      return d1 < 0.45 ? d1 * 1.1 : 0.5 + 0.5 * Math.min(d1, d2);
+    }
+    case 11: // S_GRID
+      return Math.min(Math.min(fu, 1 - fu), Math.min(fv, 1 - fv)) * 2;
+    case 12: { // S_CYBER
+      const ax = Math.abs(du) * 2, ay = Math.abs(dv) * 2;
+      const oct = Math.max(Math.max(ax, ay), (ax + ay) * 0.72);
+      const ring = Math.abs(oct - 0.68) * 2.2;
+      const core = (ax + ay) * 1.4;
+      return Math.min(ring, core + 0.25);
+    }
+    case 13: { // S_CROSS
+      const arm = Math.min(Math.abs(du), Math.abs(dv)) * 2.4;
+      const span = Math.max(Math.abs(du), Math.abs(dv)) * 0.65;
+      return arm + span;
+    }
+    case 14: // S_DIAMOND
+      return Math.abs(du) + Math.abs(dv);
+    case 15: { // S_STAR
+      const a = Math.pow(Math.abs(du) + 1e-4, 0.55) + Math.pow(Math.abs(dv) + 1e-4, 0.55);
+      return a * a * 0.85;
+    }
+    case 16: { // S_WAVE
+      const u2 = (fu + pu) * 0.5;
+      const w = 0.28 * Math.sin(6.2831853 * u2);
+      return Math.abs(frac1(fv + w) - 0.5) * 2;
+    }
+    case 17: { // S_ZIGZAG
+      const u2 = (fu + pu) * 0.5;
+      const z = 0.38 * (tri(u2 * 2) - 0.5);
+      return Math.abs(frac1(fv + z) - 0.5) * 2;
+    }
+    case 18: { // S_CIRCUIT
+      const r = Math.max(Math.abs(du), Math.abs(dv)) * 2;
+      const target = par ? 0.32 : 0.68;
+      const trace = Math.abs(r - target) * 2.6;
+      const pad = Math.max(Math.abs(du), Math.abs(dv)) * 3.5;
+      return par ? Math.min(trace, pad) : trace;
+    }
+    case 19: { // S_STITCHV
+      const sv = frac1(fv + (pu ? 0.5 : 0));
+      const gap = sv > 0.72 ? (sv - 0.72) * 2.5 : 0;
+      return Math.abs(du) * 1.9 + gap;
+    }
+    case 20: { // S_STITCHH
+      const su = frac1(fu + (pv ? 0.5 : 0));
+      const gap = su > 0.72 ? (su - 0.72) * 2.5 : 0;
+      return Math.abs(dv) * 1.9 + gap;
+    }
+    case 21: { // S_CLOCK
+      const ang = Math.atan2(dv, du) * 0.15915494 + 0.5;
+      const rad = Math.sqrt(du * du + dv * dv) * 1.414;
+      const blades = tri(ang * 4 + (par ? 0.25 : 0) + rad * 0.35);
+      return 0.65 * blades + 0.35 * rad;
+    }
+    case 22: { // S_BITHREAD
+      const d1 = Math.abs(frac1(fu + fv) - 0.5) * 2;
+      const d2 = Math.abs(frac1(fu - fv) - 0.5) * 2;
+      return par ? (0.75 * d1 + 0.25 * d2) : (0.25 * d1 + 0.75 * d2);
+    }
+    case 23: { // S_KNIT
+      const vloop = fv + Math.abs(du) * 1.35 - 0.32;
+      const d1 = Math.abs(frac1(vloop) - 0.5) * 2;
+      const rib = Math.abs(du) * 0.55;
+      return d1 * 0.78 + rib * 0.22;
+    }
+    default:
+      return 0.5;
   }
 }
 
-export function applySharpen(data: Uint8ClampedArray, width: number, height: number, strength: number, radius: number) {
-  if (strength <= 0) return;
-  const str = strength / 100.0;
-  const copy = new Uint8ClampedArray(data);
-  const rad = Math.max(1, Math.min(4, Math.round(radius / 25)));
+// Pre-computed 64x64 continuous screen map
+const screenCache = new Map<number, Float32Array>();
 
-  for (let y = rad; y < height - rad; y++) {
-    for (let x = rad; x < width - rad; x++) {
-      const idx = (y * width + x) * 4;
-      for (let c = 0; c < 3; c++) {
-        const center = copy[idx + c];
-        // Neighborhood average
-        const up = copy[((y - rad) * width + x) * 4 + c];
-        const down = copy[((y + rad) * width + x) * 4 + c];
-        const left = copy[(y * width + (x - rad)) * 4 + c];
-        const right = copy[(y * width + (x + rad)) * 4 + c];
-        const avg = (up + down + left + right) * 0.25;
-        const diff = center - avg;
-        data[idx + c] = clamp(Math.round(center + diff * str * 1.5), 0, 255);
-      }
+function getScreenMap(spotId: number): Float32Array {
+  if (screenCache.has(spotId)) {
+    return screenCache.get(spotId)!;
+  }
+  const M = 64;
+  const raw = new Float32Array(M * M);
+  const order = new Int32Array(M * M);
+
+  for (let y = 0; y < M; ++y) {
+    for (let x = 0; x < M; ++x) {
+      const u2 = (x + 0.5) * (2.0 / M);
+      const v2 = (y + 0.5) * (2.0 / M);
+      let pu = Math.floor(u2); if (pu > 1) pu = 1;
+      let pv = Math.floor(v2); if (pv > 1) pv = 1;
+      const fu = u2 - pu;
+      const fv = v2 - pv;
+      const tie = (u01(hash3(x, y, 0x5C8EE4)) - 0.5) * 1e-4;
+      const idx = y * M + x;
+      raw[idx] = spot(spotId, fu, fv, pu, pv) + tie;
+      order[idx] = idx;
     }
   }
+
+  // Sort order by ascending raw value
+  const orderArr = Array.from(order);
+  orderArr.sort((a, b) => raw[a] - raw[b]);
+
+  const map = new Float32Array(M * M);
+  const invN = 1.0 / (M * M);
+  for (let r = 0; r < M * M; ++r) {
+    map[orderArr[r]] = 1.0 - (r + 0.5) * invN;
+  }
+
+  screenCache.set(spotId, map);
+  return map;
 }
 
-export function applyNoiseOrDenoise(data: Uint8ClampedArray, width: number, height: number, noise: number) {
-  if (noise === 0) return;
-  const len = width * height * 4;
+function sampleScreenMap(sm: Float32Array, u2: number, v2: number): number {
+  let tu = u2 * 0.5; tu -= Math.floor(tu);
+  let tv = v2 * 0.5; tv -= Math.floor(tv);
+  const fx = clamp(tu * 64.0 - 0.5, 0.0, 63.999);
+  const fy = clamp(tv * 64.0 - 0.5, 0.0, 63.999);
+  const x0 = Math.floor(fx) & 63;
+  const y0 = Math.floor(fy) & 63;
+  const x1 = (x0 + 1) & 63;
+  const y1 = (y0 + 1) & 63;
+  const dx = fx - Math.floor(fx);
+  const dy = fy - Math.floor(fy);
+  const a = sm[y0 * 64 + x0];
+  const b = sm[y0 * 64 + x1];
+  const c = sm[y1 * 64 + x0];
+  const d = sm[y1 * 64 + x1];
+  return lerp(lerp(a, b, dx), lerp(c, d, dx), dy);
+}
 
-  if (noise > 0) {
-    // Add film grain noise
-    const amount = (noise / 100.0) * 80;
-    for (let i = 0; i < len; i += 4) {
-      const n = (Math.random() - 0.5) * amount;
-      data[i] = clamp(data[i] + n, 0, 255);
-      data[i + 1] = clamp(data[i + 1] + n, 0, 255);
-      data[i + 2] = clamp(data[i + 2] + n, 0, 255);
-    }
-  } else {
-    // Denoise (smart 3x3 median)
-    const copy = new Uint8ClampedArray(data);
-    for (let y = 1; y < height - 1; y++) {
-      for (let x = 1; x < width - 1; x++) {
-        const idx = (y * width + x) * 4;
-        for (let c = 0; c < 3; c++) {
-          const vals: number[] = [];
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dx = -1; dx <= 1; dx++) {
-              vals.push(copy[((y + dy) * width + (x + dx)) * 4 + c]);
-            }
-          }
-          vals.sort((a, b) => a - b);
-          const median = vals[4];
-          const blend = -noise / 25.0; // 0..1
-          data[idx + c] = Math.round(lerp(copy[idx + c], median, blend));
-        }
-      }
+// Find nearest color in palette
+function findNearestPaletteIndex(r: number, g: number, b: number, palette: [number, number, number][]): number {
+  let bestDist = Infinity;
+  let bestIdx = 0;
+  for (let i = 0; i < palette.length; i++) {
+    const pr = palette[i][0];
+    const pg = palette[i][1];
+    const pb = palette[i][2];
+    // Weighted Euclidean perception metric
+    const dr = (r - pr) * 0.3;
+    const dg = (g - pg) * 0.59;
+    const db = (b - pb) * 0.11;
+    const dist = dr * dr + dg * dg + db * db;
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestIdx = i;
     }
   }
+  return bestIdx;
 }
 
-export function applyBlur(data: Uint8ClampedArray, width: number, height: number, blurRadius: number) {
-  if (blurRadius <= 0) return;
-  const r = Math.min(6, Math.max(1, Math.round(blurRadius / 5)));
-  const copy = new Uint8ClampedArray(data);
-
-  // Fast box blur approximation
-  for (let y = r; y < height - r; y++) {
-    for (let x = r; x < width - r; x++) {
-      let rSum = 0, gSum = 0, bSum = 0, count = 0;
-      for (let dy = -r; dy <= r; dy += r) {
-        for (let dx = -r; dx <= r; dx += r) {
-          const idx = ((y + dy) * width + (x + dx)) * 4;
-          rSum += copy[idx];
-          gSum += copy[idx + 1];
-          bSum += copy[idx + 2];
-          count++;
-        }
-      }
-      const outIdx = (y * width + x) * 4;
-      data[outIdx] = rSum / count;
-      data[outIdx + 1] = gSum / count;
-      data[outIdx + 2] = bSum / count;
-    }
-  }
-}
-
-export function applyHueSaturation(data: Uint8ClampedArray, width: number, height: number, hueDeg: number, satPct: number, invert: boolean) {
-  if (hueDeg === 0 && satPct === 0 && !invert) return;
-  const len = width * height * 4;
-  const hueRad = (hueDeg * Math.PI) / 180;
-  const cosH = Math.cos(hueRad);
-  const sinH = Math.sin(hueRad);
-  const satMult = 1 + satPct / 100.0;
-
-  for (let i = 0; i < len; i += 4) {
-    let r = data[i] / 255.0;
-    let g = data[i + 1] / 255.0;
-    let b = data[i + 2] / 255.0;
-
-    if (invert) {
-      r = 1.0 - r;
-      g = 1.0 - g;
-      b = 1.0 - b;
-    }
-
-    // Convert to YIQ for clean hue/sat rotation
-    const y = 0.299 * r + 0.587 * g + 0.114 * b;
-    let u = -0.14713 * r - 0.28886 * g + 0.436 * b;
-    let v = 0.615 * r - 0.51499 * g - 0.10001 * b;
-
-    // Rotate hue and scale saturation
-    const newU = (u * cosH - v * sinH) * satMult;
-    const newV = (u * sinH + v * cosH) * satMult;
-
-    // Convert back to RGB
-    const finalR = clamp(y + 1.13983 * newV, 0, 1);
-    const finalG = clamp(y - 0.39465 * newU - 0.5806 * newV, 0, 1);
-    const finalB = clamp(y + 2.03211 * newU, 0, 1);
-
-    data[i] = Math.round(finalR * 255);
-    data[i + 1] = Math.round(finalG * 255);
-    data[i + 2] = Math.round(finalB * 255);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// MAIN CORE DITHER ENGINE PIPELINE
-// ---------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// Core Dithering Rendering Engine
+// ----------------------------------------------------------------------------
 export function processDither(
-  sourceImageData: ImageData,
-  params: DitherParams
+  srcData: ImageData,
+  settings: DitherSettings,
+  activePaletteRgb: [number, number, number][]
 ): ImageData {
-  const width = sourceImageData.width;
-  const height = sourceImageData.height;
-  const output = new ImageData(new Uint8ClampedArray(sourceImageData.data), width, height);
-  const data = output.data;
+  const W = srcData.width;
+  const H = srcData.height;
+  const outData = new ImageData(W, H);
+  const src = srcData.data;
+  const dst = outData.data;
 
-  // 1. Run Pre-processing filters
-  applyLevels(data, width, height, params.levels);
-  applySharpen(data, width, height, params.sharpenStrength, params.sharpenRadius);
-  applyNoiseOrDenoise(data, width, height, params.noise);
-  applyBlur(data, width, height, params.blur);
-  applyHueSaturation(data, width, height, params.hue, params.saturation, params.invert);
+  const algo = DITHER_ALGOS[Math.max(0, Math.min(DITHER_ALGOS.length - 1, settings.algo))];
+  const L = Math.max(2, Math.min(64, settings.levels));
+  const contrast = settings.contrast / 100.0;
+  const bright = settings.brightness / 100.0;
+  const bias = ((50.0 - clamp(settings.threshold, 0, 100)) / 50.0) * 0.45;
+  const gam = 2.2;
+  const invGam = 1.0 / gam;
+  const spread = clamp(settings.strength / 100.0, 0, 2.5);
+  const ditherScale = Math.max(1.0, settings.scale);
+  const seed = hash3(0x1928, 0, 0xD17E5);
 
-  // 2. Algorithm lookup
-  const algo = ALGORITHMS.find(a => a.id === params.algoId) || ALGORITHMS[0];
-  const L = Math.max(2, Math.min(64, params.levelsCount));
-  const contrast = params.contrast / 100.0;
-  const bright = params.brightness / 100.0;
-  const bias = ((50.0 - clamp(params.threshold, 0, 100)) / 50.0) * 0.45;
-  const spread = clamp(params.strength / 100.0, 0, 2.5);
-  const ditherScale = Math.max(1.0, params.scale * (params.dpi / 300.0));
-  const masterAmount = clamp(params.amount / 100.0, 0, 1);
-  const whiteCov = clamp(params.whiteAmount / 100.0, 0, 1);
-  const blackCov = clamp(params.blackAmount / 100.0, 0, 1);
-  const seed = hash3(params.seed, 0, 0xd17e5);
+  const darkRgb = hexToRgb(settings.darkColor);
+  const lightRgb = hexToRgb(settings.lightColor);
+  const midRgb = hexToRgb(settings.midColor);
 
-  // Setup palette colors for Tonal / Color Grade mode
-  const highlightRgb = hexToRgb(params.highlightColor);
-  const midtoneRgb = hexToRgb(params.midtoneColor);
-  const shadowRgb = hexToRgb(params.shadowColor);
-  const bgRgb = hexToRgb(params.backgroundColor);
+  // Channels count based on mode:
+  // rgb: 3, cmyk: 4, mono/duo/tritone/indexed: 1
+  const nch = (settings.mode === 'rgb') ? 3 : (settings.mode === 'cmyk') ? 4 : 1;
 
-  // Prepared indexed palette if in Color Grade -> Indexed mode
-  let activePalette: Array<[number, number, number]> = [];
-  if (params.renderMode === 'color_grade' && params.colorspace === 'indexed') {
-    const preset = PALETTE_PRESETS.find(p => p.id === params.palettePreset) || PALETTE_PRESETS[0];
-    const colorsHex = params.customPalette && params.customPalette.length > 0 ? params.customPalette : preset.colors;
-    activePalette = colorsHex.slice(0, params.indexedColorCount).map(hexToRgb);
+  // Pre-process sharpening / blur / noise if requested
+  // Create working float buffer [R, G, B, A] in [0, 1]
+  const buf = new Float32Array(W * H * 4);
+  for (let i = 0; i < W * H; i++) {
+    const sIdx = i * 4;
+    buf[sIdx]     = src[sIdx] / 255.0;
+    buf[sIdx + 1] = src[sIdx + 1] / 255.0;
+    buf[sIdx + 2] = src[sIdx + 2] / 255.0;
+    buf[sIdx + 3] = src[sIdx + 3] / 255.0;
   }
 
-  // -------------------------------------------------------------------------
-  // CONTINUOUS SCREEN, ORDERED BAYER, BLUE NOISE, IGN, WHITE NOISE
-  // -------------------------------------------------------------------------
-  if (['screen', 'bayer', 'blue', 'ign', 'white'].includes(algo.kind)) {
-    let sm: Float32Array | null = null;
-    let pitch = 6.0;
-    if (algo.kind === 'screen') {
-      sm = getScreenMap(algo.param);
-      pitch = Math.max(1.0, (algo.cell || 8) * ditherScale * Math.max(10, params.patternScale) / 100.0);
+  // Pre-blur if specified
+  if (settings.preBlur > 0) {
+    const radius = Math.min(10, Math.floor(settings.preBlur));
+    const temp = new Float32Array(W * H * 4);
+    temp.set(buf);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        let rAcc = 0, gAcc = 0, bAcc = 0, cnt = 0;
+        for (let dy = -radius; dy <= radius; dy++) {
+          const ny = y + dy;
+          if (ny < 0 || ny >= H) continue;
+          for (let dx = -radius; dx <= radius; dx++) {
+            const nx = x + dx;
+            if (nx < 0 || nx >= W) continue;
+            const idx = (ny * W + nx) * 4;
+            rAcc += temp[idx];
+            gAcc += temp[idx + 1];
+            bAcc += temp[idx + 2];
+            cnt++;
+          }
+        }
+        const oIdx = (y * W + x) * 4;
+        buf[oIdx]     = rAcc / cnt;
+        buf[oIdx + 1] = gAcc / cnt;
+        buf[oIdx + 2] = bAcc / cnt;
+      }
     }
-    const bayN = Math.max(2, algo.param);
-    const nch = params.renderMode === 'color_grade' && params.colorspace === 'rgb' ? 3 : params.renderMode === 'cmyk' ? 4 : 1;
+  }
 
-    // Angle rotation for channels
+  // Pre-sharpen if specified
+  if (settings.sharpenStrength > 0) {
+    const strength = settings.sharpenStrength / 100.0;
+    const temp = new Float32Array(W * H * 4);
+    temp.set(buf);
+    for (let y = 1; y < H - 1; y++) {
+      for (let x = 1; x < W - 1; x++) {
+        const idx = (y * W + x) * 4;
+        for (let c = 0; c < 3; c++) {
+          const center = temp[idx + c];
+          const lap = 4 * center
+            - temp[((y - 1) * W + x) * 4 + c]
+            - temp[((y + 1) * W + x) * 4 + c]
+            - temp[(y * W + (x - 1)) * 4 + c]
+            - temp[(y * W + (x + 1)) * 4 + c];
+          buf[idx + c] = clamp(center + lap * strength * 0.5, 0, 1);
+        }
+      }
+    }
+  }
+
+  // Pre-noise if specified
+  if (settings.preNoise !== 0) {
+    const noiseAmt = settings.preNoise / 100.0;
+    for (let i = 0; i < W * H; i++) {
+      const idx = i * 4;
+      const n = (u01(hash3(i, 0x932, seed)) - 0.5) * noiseAmt;
+      buf[idx]     = clamp(buf[idx] + n, 0, 1);
+      buf[idx + 1] = clamp(buf[idx + 1] + n, 0, 1);
+      buf[idx + 2] = clamp(buf[idx + 2] + n, 0, 1);
+    }
+  }
+
+  // ==========================================================================
+  // CASE 1: Continuous Halftone Screen, Bayer, or Stochastic (Ordered)
+  // ==========================================================================
+  if (algo.kind === 'screen' || algo.kind === 'bayer' || algo.kind === 'blue' || algo.kind === 'ign' || algo.kind === 'white') {
+    let screenMap: Float32Array | null = null;
+    let pitch = 6.0;
+
+    if (algo.kind === 'screen') {
+      screenMap = getScreenMap(algo.param);
+      pitch = Math.max(1.0, algo.cell * ditherScale * (Math.max(10, settings.patternScale) / 100.0));
+    }
+
+    const bayN = Math.max(2, algo.param);
+    const nz = settings.noise / 100.0;
     const cmykAngles = [15.0, 75.0, 0.0, 45.0];
     const cosCh = new Float32Array(nch);
     const sinCh = new Float32Array(nch);
+
     for (let k = 0; k < nch; ++k) {
-      const angDeg = (algo.angle || 0) + params.patternAngle + (nch === 4 ? cmykAngles[k] : 0);
-      const rad = (angDeg * Math.PI) / 180.0;
+      const angDeg = algo.angle + settings.patternAngle + (nch === 4 ? cmykAngles[k] : 0.0);
+      const rad = angDeg * (Math.PI / 180.0);
       cosCh[k] = Math.cos(rad);
       sinCh[k] = Math.sin(rad);
     }
 
-    const orig = new Uint8ClampedArray(data);
+    const masterCov = clamp(settings.amount / 100.0, 0, 1);
+    const whiteCov  = clamp(settings.whiteAmount / 100.0, 0, 1);
+    const blackCov  = clamp(settings.blackAmount / 100.0, 0, 1);
 
-    for (let y = 0; y < height; ++y) {
-      for (let x = 0; x < width; ++x) {
-        const idx = (y * width + x) * 4;
-        let r = orig[idx] / 255.0;
-        let g = orig[idx + 1] / 255.0;
-        let b = orig[idx + 2] / 255.0;
-        const a = orig[idx + 3];
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const pIdx = (y * W + x) * 4;
+        const origR = buf[pIdx];
+        const origG = buf[pIdx + 1];
+        const origB = buf[pIdx + 2];
+        const origA = buf[pIdx + 3];
 
-        // Apply contrast & brightness
-        r = clamp((r - 0.5) * contrast + 0.5 + bright, 0, 1);
-        g = clamp((g - 0.5) * contrast + 0.5 + bright, 0, 1);
-        b = clamp((b - 0.5) * contrast + 0.5 + bright, 0, 1);
+        // Contrast, Brightness & Invert
+        let r = (origR - 0.5) * contrast + 0.5 + bright;
+        let g = (origG - 0.5) * contrast + 0.5 + bright;
+        let b = (origB - 0.5) * contrast + 0.5 + bright;
+        if (settings.invert) { r = 1 - r; g = 1 - g; b = 1 - b; }
+        r = clamp(r, 0, 1); g = clamp(g, 0, 1); b = clamp(b, 0, 1);
+        if (settings.linear) {
+          r = Math.pow(r, gam);
+          g = Math.pow(g, gam);
+          b = Math.pow(b, gam);
+        }
 
-        const chVal = new Float32Array(4);
+        const chVal = [0, 0, 0, 0];
         if (nch === 1) {
           chVal[0] = luma709(r, g, b);
         } else if (nch === 3) {
@@ -680,17 +556,17 @@ export function processDither(
         } else {
           // CMYK
           const kInk = 1.0 - Math.max(r, Math.max(g, b));
-          const invOneMinusK = 1.0 - kInk > 1e-5 ? 1.0 / (1.0 - kInk) : 0;
+          const invOneMinusK = (1.0 - kInk) > 1e-5 ? 1.0 / (1.0 - kInk) : 0;
           chVal[0] = clamp(1.0 - (1.0 - r - kInk) * invOneMinusK, 0, 1); // C
           chVal[1] = clamp(1.0 - (1.0 - g - kInk) * invOneMinusK, 0, 1); // M
           chVal[2] = clamp(1.0 - (1.0 - b - kInk) * invOneMinusK, 0, 1); // Y
-          chVal[3] = clamp(1.0 - kInk, 0, 1); // K
+          chVal[3] = clamp(1.0 - kInk, 0, 1);                            // K
         }
 
-        const outCh = new Float32Array(4);
+        const outCh = [0, 0, 0, 0];
         for (let k = 0; k < nch; ++k) {
           let T = 0.5;
-          const chSeed = seed + k * 0x9e37;
+          const chSeed = (seed + k * 0x9E37) >>> 0;
 
           switch (algo.kind) {
             case 'bayer': {
@@ -706,9 +582,9 @@ export function processDither(
               break;
             }
             case 'ign': {
-              let f = 0.06711056 * (x / ditherScale + k * 11) + 0.00583715 * (y / ditherScale + k * 19);
-              f = f - Math.floor(f);
-              f = f * 52.9829189;
+              let f = 0.06711056 * ((x / ditherScale) + k * 11) + 0.00583715 * ((y / ditherScale) + k * 19);
+              f -= Math.floor(f);
+              f *= 52.9829189;
               T = f - Math.floor(f);
               break;
             }
@@ -719,184 +595,141 @@ export function processDither(
               break;
             }
             case 'screen': {
-              if (sm) {
-                const xs = x + 0.5;
-                const ys = y + 0.5;
-                const u2 = (xs * cosCh[k] + ys * sinCh[k]) / pitch;
-                const v2 = (-xs * sinCh[k] + ys * cosCh[k]) / pitch;
-                T = sampleScreenMap(sm, u2, v2);
-              }
+              const xs = x + 0.5;
+              const ys = y + 0.5;
+              const u2 = (xs * cosCh[k] + ys * sinCh[k]) / pitch;
+              const v2 = (-xs * sinCh[k] + ys * cosCh[k]) / pitch;
+              T = sampleScreenMap(screenMap!, u2, v2);
               break;
             }
           }
 
-          // Modulation spread and quantization
+          if (nz > 0) {
+            T = clamp(T + (u01(hash3(x, y, chSeed ^ 0x5A5A)) - 0.5) * nz, 0, 1);
+          }
           T = clamp(0.5 + (T - 0.5) * spread, 0.001, 0.999);
           const val = clamp(chVal[k] + bias, 0, 1);
           const scaled = val * (L - 1);
           const q = Math.floor(scaled + T);
-          outCh[k] = clamp(q / (L - 1), 0, 1);
+          let res = clamp(q / (L - 1), 0, 1);
+          if (settings.linear) res = Math.pow(res, invGam);
+          outCh[k] = res;
         }
 
-        // Color mapping according to active Render Mode
-        let finalR = 0, finalG = 0, finalB = 0, finalA = a;
-
-        if (params.renderMode === 'tonal') {
-          const luma = outCh[0];
-          const rawLuma = luma709(orig[idx] / 255, orig[idx + 1] / 255, orig[idx + 2] / 255) * 255;
-          const hThresh = params.highlightThreshold;
-          const mThresh = params.midtoneThreshold;
-          const sThresh = params.shadowThreshold;
-
-          if (params.tonalCount === 1) {
-            // 1 Color (Single ink)
-            if (luma >= 0.5) {
-              finalR = highlightRgb[0]; finalG = highlightRgb[1]; finalB = highlightRgb[2];
-            } else {
-              finalR = bgRgb[0]; finalG = bgRgb[1]; finalB = bgRgb[2];
-              if (params.knockoutBg) finalA = 0;
-            }
-          } else if (params.tonalCount === 2) {
-            // 2 Color (Highlights & Shadows)
-            if (rawLuma >= hThresh && luma >= 0.5) {
-              finalR = highlightRgb[0]; finalG = highlightRgb[1]; finalB = highlightRgb[2];
-            } else {
-              finalR = shadowRgb[0]; finalG = shadowRgb[1]; finalB = shadowRgb[2];
-            }
-          } else {
-            // 3 Color (Highlights, Midtones, Shadows)
-            if (rawLuma >= hThresh && luma >= 0.5) {
-              finalR = highlightRgb[0]; finalG = highlightRgb[1]; finalB = highlightRgb[2];
-            } else if (rawLuma >= sThresh) {
-              finalR = midtoneRgb[0]; finalG = midtoneRgb[1]; finalB = midtoneRgb[2];
-            } else {
-              finalR = shadowRgb[0]; finalG = shadowRgb[1]; finalB = shadowRgb[2];
-            }
-          }
-        } else if (params.renderMode === 'monochrome') {
-          const v = outCh[0] >= 0.5 ? 255 : 0;
-          finalR = v; finalG = v; finalB = v;
-        } else if (params.renderMode === 'duotone') {
-          const t = outCh[0];
-          finalR = Math.round(lerp(shadowRgb[0], highlightRgb[0], t));
-          finalG = Math.round(lerp(shadowRgb[1], highlightRgb[1], t));
-          finalB = Math.round(lerp(shadowRgb[2], highlightRgb[2], t));
-        } else if (params.renderMode === 'cmyk') {
+        let finalR = 0, finalG = 0, finalB = 0;
+        if (settings.mode === 'rgb') {
+          finalR = outCh[0]; finalG = outCh[1]; finalB = outCh[2];
+        } else if (settings.mode === 'mono') {
+          finalR = outCh[0]; finalG = outCh[0]; finalB = outCh[0];
+        } else if (settings.mode === 'duo') {
+          finalR = lerp(darkRgb[0], lightRgb[0], outCh[0]);
+          finalG = lerp(darkRgb[1], lightRgb[1], outCh[0]);
+          finalB = lerp(darkRgb[2], lightRgb[2], outCh[0]);
+        } else if (settings.mode === 'cmyk') {
           const kMul = outCh[3];
-          finalR = Math.round(clamp(outCh[0] * kMul, 0, 1) * 255);
-          finalG = Math.round(clamp(outCh[1] * kMul, 0, 1) * 255);
-          finalB = Math.round(clamp(outCh[2] * kMul, 0, 1) * 255);
-        } else {
-          // Color Grade
-          if (params.colorspace === 'gray') {
-            const v = Math.round(outCh[0] * 255);
-            finalR = v; finalG = v; finalB = v;
-          } else if (params.colorspace === 'rgb') {
-            finalR = Math.round(outCh[0] * 255);
-            finalG = Math.round(outCh[1] * 255);
-            finalB = Math.round(outCh[2] * 255);
+          finalR = clamp(outCh[0] * kMul, 0, 1);
+          finalG = clamp(outCh[1] * kMul, 0, 1);
+          finalB = clamp(outCh[2] * kMul, 0, 1);
+        } else if (settings.mode === 'tritone') {
+          const l = outCh[0];
+          if (l < 0.5) {
+            const t = l * 2;
+            finalR = lerp(darkRgb[0], midRgb[0], t);
+            finalG = lerp(darkRgb[1], midRgb[1], t);
+            finalB = lerp(darkRgb[2], midRgb[2], t);
           } else {
-            // Indexed Palette
-            if (activePalette.length > 0) {
-              // Find closest palette color with optional spread modulation
-              const modSpread = (params.spread / 100.0) * (outCh[0] - 0.5) * 50;
-              const targetR = clamp(r * 255 + modSpread, 0, 255);
-              const targetG = clamp(g * 255 + modSpread, 0, 255);
-              const targetB = clamp(b * 255 + modSpread, 0, 255);
-
-              let bestDist = Infinity;
-              let bestColor = activePalette[0];
-              for (const col of activePalette) {
-                const dr = targetR - col[0];
-                const dg = targetG - col[1];
-                const db = targetB - col[2];
-                const dist = dr * dr + dg * dg + db * db;
-                if (dist < bestDist) {
-                  bestDist = dist;
-                  bestColor = col;
-                }
-              }
-              finalR = bestColor[0]; finalG = bestColor[1]; finalB = bestColor[2];
-            }
+            const t = (l - 0.5) * 2;
+            finalR = lerp(midRgb[0], lightRgb[0], t);
+            finalG = lerp(midRgb[1], lightRgb[1], t);
+            finalB = lerp(midRgb[2], lightRgb[2], t);
+          }
+        } else if (settings.mode === 'indexed') {
+          // Continuous threshold mapped across palette swatches
+          const palLen = activePaletteRgb.length;
+          if (palLen > 0) {
+            const palIdx = Math.min(palLen - 1, Math.floor(outCh[0] * palLen));
+            finalR = activePaletteRgb[palIdx][0];
+            finalG = activePaletteRgb[palIdx][1];
+            finalB = activePaletteRgb[palIdx][2];
           }
         }
 
-        // True Dot Density Gating (Amount, White Amount, Black Amount)
-        let prob = masterAmount;
-        let gateSeed = 0x51a7;
-        if (params.renderMode === 'monochrome') {
+        // True Dot Density Gating
+        let prob = masterCov;
+        let gateSeed = 0x51A7;
+        if (settings.mode === 'mono') {
           if (outCh[0] >= 0.5) {
-            prob = masterAmount * whiteCov;
-            gateSeed = 0x93e1;
+            prob = masterCov * whiteCov;
+            gateSeed = 0x93E1;
           } else {
-            prob = masterAmount * blackCov;
-            gateSeed = 0x48d2;
+            prob = masterCov * blackCov;
+            gateSeed = 0x48D2;
           }
         }
 
         const gate = u01(hash3(x, y, seed ^ gateSeed));
         if (gate < prob) {
-          data[idx] = finalR;
-          data[idx + 1] = finalG;
-          data[idx + 2] = finalB;
-          data[idx + 3] = finalA;
+          dst[pIdx]     = Math.round(finalR * 255);
+          dst[pIdx + 1] = Math.round(finalG * 255);
+          dst[pIdx + 2] = Math.round(finalB * 255);
         } else {
-          // Retain original image pixel
-          data[idx] = orig[idx];
-          data[idx + 1] = orig[idx + 1];
-          data[idx + 2] = orig[idx + 2];
-          data[idx + 3] = orig[idx + 3];
+          // Original image pixel under transparent dot gate
+          dst[pIdx]     = Math.round(origR * 255);
+          dst[pIdx + 1] = Math.round(origG * 255);
+          dst[pIdx + 2] = Math.round(origB * 255);
         }
+        dst[pIdx + 3] = Math.round(origA * 255);
       }
     }
-    return output;
+
+    return outData;
   }
 
-  // -------------------------------------------------------------------------
-  // ERROR DIFFUSION PIPELINE
-  // -------------------------------------------------------------------------
-  const block = (params.pixelate && ditherScale > 1.0) ? Math.max(1, Math.round(ditherScale)) : 1;
-  const gw = Math.max(1, Math.floor((width + block - 1) / block));
-  const gh = Math.max(1, Math.floor((height + block - 1) / block));
+  // ==========================================================================
+  // CASE 2: Error Diffusion Algorithms (15 kernels)
+  // ==========================================================================
+  const block = (settings.pixelate && ditherScale > 1.0) ? Math.max(1, Math.floor(ditherScale + 0.5)) : 1;
+  const gw = Math.max(1, Math.floor((W + block - 1) / block));
+  const gh = Math.max(1, Math.floor((H + block - 1) / block));
 
-  const nch = params.renderMode === 'color_grade' && params.colorspace === 'rgb' ? 3 : params.renderMode === 'cmyk' ? 4 : 1;
   const planes: Float32Array[] = [];
-  for (let c = 0; c < nch; ++c) {
+  for (let c = 0; c < nch; c++) {
     planes.push(new Float32Array(gw * gh));
   }
 
-  // Downsample to grid
-  const orig = new Uint8ClampedArray(data);
-  for (let gy = 0; gy < gh; ++gy) {
-    for (let gx = 0; gx < gw; ++gx) {
+  // Fill downscaled / initial planes
+  for (let gy = 0; gy < gh; gy++) {
+    for (let gx = 0; gx < gw; gx++) {
       let r = 0, g = 0, b = 0;
       if (block <= 1) {
-        const idx = (gy * width + gx) * 4;
-        r = orig[idx] / 255.0;
-        g = orig[idx + 1] / 255.0;
-        b = orig[idx + 2] / 255.0;
+        const sIdx = (gy * W + gx) * 4;
+        r = buf[sIdx]; g = buf[sIdx + 1]; b = buf[sIdx + 2];
       } else {
         let accR = 0, accG = 0, accB = 0, cnt = 0;
-        const xStart = gx * block;
-        const yStart = gy * block;
-        const xe = Math.min(width, xStart + block);
-        const ye = Math.min(height, yStart + block);
-        for (let y = yStart; y < ye; ++y) {
-          for (let x = xStart; x < xe; ++x) {
-            const idx = (y * width + x) * 4;
-            accR += orig[idx];
-            accG += orig[idx + 1];
-            accB += orig[idx + 2];
+        const xStart = gx * block, yStart = gy * block;
+        const xe = Math.min(W, xStart + block), ye = Math.min(H, yStart + block);
+        for (let y = yStart; y < ye; y++) {
+          for (let x = xStart; x < xe; x++) {
+            const idx = (y * W + x) * 4;
+            accR += buf[idx]; accG += buf[idx + 1]; accB += buf[idx + 2];
             cnt++;
           }
         }
-        const inv = cnt > 0 ? 1.0 / (cnt * 255.0) : 0;
-        r = accR * inv; g = accG * inv; b = accB * inv;
+        const invCnt = cnt > 0 ? 1.0 / cnt : 0;
+        r = accR * invCnt; g = accG * invCnt; b = accB * invCnt;
       }
 
-      r = clamp((r - 0.5) * contrast + 0.5 + bright, 0, 1);
-      g = clamp((g - 0.5) * contrast + 0.5 + bright, 0, 1);
-      b = clamp((b - 0.5) * contrast + 0.5 + bright, 0, 1);
+      // Contrast & Brightness
+      r = (r - 0.5) * contrast + 0.5 + bright;
+      g = (g - 0.5) * contrast + 0.5 + bright;
+      b = (b - 0.5) * contrast + 0.5 + bright;
+      if (settings.invert) { r = 1 - r; g = 1 - g; b = 1 - b; }
+      r = clamp(r, 0, 1); g = clamp(g, 0, 1); b = clamp(b, 0, 1);
+      if (settings.linear) {
+        r = Math.pow(r, gam);
+        g = Math.pow(g, gam);
+        b = Math.pow(b, gam);
+      }
 
       const gi = gy * gw + gx;
       if (nch === 1) {
@@ -905,7 +738,7 @@ export function processDither(
         planes[0][gi] = r; planes[1][gi] = g; planes[2][gi] = b;
       } else {
         const kInk = 1.0 - Math.max(r, Math.max(g, b));
-        const invOneMinusK = 1.0 - kInk > 1e-5 ? 1.0 / (1.0 - kInk) : 0;
+        const invOneMinusK = (1.0 - kInk) > 1e-5 ? 1.0 / (1.0 - kInk) : 0;
         planes[0][gi] = clamp(1.0 - (1.0 - r - kInk) * invOneMinusK, 0, 1);
         planes[1][gi] = clamp(1.0 - (1.0 - g - kInk) * invOneMinusK, 0, 1);
         planes[2][gi] = clamp(1.0 - (1.0 - b - kInk) * invOneMinusK, 0, 1);
@@ -914,43 +747,51 @@ export function processDither(
     }
   }
 
-  // Diffuse each channel
   const kid = algo.param & 255;
-  const taps = ERROR_KERNELS[Math.min(ERROR_KERNELS.length - 1, kid)] || ERROR_KERNELS[0];
-  const serp = params.serpentine || ((algo.param & 256) !== 0);
-  const xerox = (algo.param & 1024) !== 0;
+  const kernel = KERNELS[Math.max(0, Math.min(KERNELS.length - 1, kid))];
+  const isSerp = settings.serpentine || ((algo.param & 256) !== 0);
+  const isXerox = (algo.param & 1024) !== 0;
+  const errorNoise = (settings.noise / 100.0) + ((algo.param & 512) ? 0.55 : 0.0);
 
-  for (let k = 0; k < nch; ++k) {
-    const pl = planes[k];
-
-    // Xerox edge boost
-    if (xerox && gw > 2 && gh > 2) {
-      const origPl = new Float32Array(pl);
-      for (let y = 1; y < gh - 1; ++y) {
-        for (let x = 1; x < gw - 1; ++x) {
-          const c = origPl[y * gw + x];
-          const lap = 4 * c - origPl[(y - 1) * gw + x] - origPl[(y + 1) * gw + x] - origPl[y * gw + (x - 1)] - origPl[y * gw + (x + 1)];
-          pl[y * gw + x] = clamp(c + lap * 0.55, 0, 1);
+  // Xerox pre-pass edge boost
+  if (isXerox && gw > 2 && gh > 2) {
+    for (let c = 0; c < nch; c++) {
+      const orig = new Float32Array(planes[c]);
+      for (let y = 1; y < gh - 1; y++) {
+        for (let x = 1; x < gw - 1; x++) {
+          const center = orig[y * gw + x];
+          const lap = 4 * center - orig[(y - 1) * gw + x] - orig[(y + 1) * gw + x] - orig[y * gw + (x - 1)] - orig[y * gw + (x + 1)];
+          const toner = (u01(hash3(x, y, seed ^ 0x7E80)) - 0.5) * 0.12;
+          planes[c][y * gw + x] = clamp(center + lap * 0.55 + toner, 0, 1);
         }
       }
     }
+  }
 
-    // Diffusion scan
-    for (let y = 0; y < gh; ++y) {
-      const rev = serp && (y & 1) !== 0;
-      for (let i = 0; i < gw; ++i) {
+  // Diffuse each plane
+  const invLm1 = 1.0 / Math.max(1, L - 1);
+  for (let c = 0; c < nch; c++) {
+    const pl = planes[c];
+    for (let y = 0; y < gh; y++) {
+      const rev = isSerp && ((y & 1) === 1);
+      for (let i = 0; i < gw; i++) {
         const x = rev ? gw - 1 - i : i;
         const gi = y * gw + x;
         const v = clamp(pl[gi], -0.35, 1.35);
+        let t = v;
+        if (errorNoise > 0) {
+          t += (u01(hash3(x, y, seed + c * 193)) - 0.5) * errorNoise * invLm1;
+        }
 
-        // Quantization with bias
-        const biased = clamp(v + bias, 0, 1);
-        const q = Math.floor(biased * (L - 1) + 0.5) / (L - 1);
+        // Quantize
+        const shifted = clamp(t + bias, 0, 1);
+        const q = Math.floor(shifted * (L - 1) + 0.5) / (L - 1);
         const err = clamp((v - q) * spread, -1.0, 1.0);
         pl[gi] = q;
 
-        // Distribute error to taps
-        for (const tap of taps) {
+        // Distribute error
+        for (let ti = 0; ti < kernel.ntaps; ti++) {
+          const tap = kernel.taps[ti];
           const nx = x + (rev ? -tap.dx : tap.dx);
           const ny = y + tap.dy;
           if (nx >= 0 && nx < gw && ny >= 0 && ny < gh) {
@@ -961,121 +802,87 @@ export function processDither(
     }
   }
 
-  // Map diffused planes back to pixels with full tonal & density controls
-  for (let y = 0; y < height; ++y) {
+  // Composite final result
+  const masterCov = clamp(settings.amount / 100.0, 0, 1);
+  const whiteCov  = clamp(settings.whiteAmount / 100.0, 0, 1);
+  const blackCov  = clamp(settings.blackAmount / 100.0, 0, 1);
+
+  for (let y = 0; y < H; y++) {
     const gy = Math.min(gh - 1, Math.floor(y / block));
-    for (let x = 0; x < width; ++x) {
+    for (let x = 0; x < W; x++) {
       const gx = Math.min(gw - 1, Math.floor(x / block));
       const gi = gy * gw + gx;
-      const idx = (y * width + x) * 4;
+      const pIdx = (y * W + x) * 4;
 
-      const outCh = new Float32Array(4);
-      for (let k = 0; k < nch; ++k) {
-        outCh[k] = clamp(planes[k][gi], 0, 1);
+      const v = [0, 0, 0, 0];
+      for (let c = 0; c < nch; c++) {
+        let t = clamp(planes[c][gi], 0, 1);
+        if (settings.linear) t = Math.pow(t, invGam);
+        v[c] = t;
       }
 
-      let finalR = 0, finalG = 0, finalB = 0, finalA = orig[idx + 3];
-
-      if (params.renderMode === 'tonal') {
-        const luma = outCh[0];
-        const rawLuma = luma709(orig[idx] / 255, orig[idx + 1] / 255, orig[idx + 2] / 255) * 255;
-        const hThresh = params.highlightThreshold;
-        const sThresh = params.shadowThreshold;
-
-        if (params.tonalCount === 1) {
-          if (luma >= 0.5) {
-            finalR = highlightRgb[0]; finalG = highlightRgb[1]; finalB = highlightRgb[2];
-          } else {
-            finalR = bgRgb[0]; finalG = bgRgb[1]; finalB = bgRgb[2];
-            if (params.knockoutBg) finalA = 0;
-          }
-        } else if (params.tonalCount === 2) {
-          if (rawLuma >= hThresh && luma >= 0.5) {
-            finalR = highlightRgb[0]; finalG = highlightRgb[1]; finalB = highlightRgb[2];
-          } else {
-            finalR = shadowRgb[0]; finalG = shadowRgb[1]; finalB = shadowRgb[2];
-          }
+      let finalR = 0, finalG = 0, finalB = 0;
+      if (settings.mode === 'rgb') {
+        finalR = v[0]; finalG = v[1]; finalB = v[2];
+      } else if (settings.mode === 'mono') {
+        finalR = v[0]; finalG = v[0]; finalB = v[0];
+      } else if (settings.mode === 'duo') {
+        finalR = lerp(darkRgb[0], lightRgb[0], v[0]);
+        finalG = lerp(darkRgb[1], lightRgb[1], v[0]);
+        finalB = lerp(darkRgb[2], lightRgb[2], v[0]);
+      } else if (settings.mode === 'cmyk') {
+        const kMul = v[3];
+        finalR = clamp(v[0] * kMul, 0, 1);
+        finalG = clamp(v[1] * kMul, 0, 1);
+        finalB = clamp(v[2] * kMul, 0, 1);
+      } else if (settings.mode === 'tritone') {
+        const l = v[0];
+        if (l < 0.5) {
+          const t = l * 2;
+          finalR = lerp(darkRgb[0], midRgb[0], t);
+          finalG = lerp(darkRgb[1], midRgb[1], t);
+          finalB = lerp(darkRgb[2], midRgb[2], t);
         } else {
-          if (rawLuma >= hThresh && luma >= 0.5) {
-            finalR = highlightRgb[0]; finalG = highlightRgb[1]; finalB = highlightRgb[2];
-          } else if (rawLuma >= sThresh) {
-            finalR = midtoneRgb[0]; finalG = midtoneRgb[1]; finalB = midtoneRgb[2];
-          } else {
-            finalR = shadowRgb[0]; finalG = shadowRgb[1]; finalB = shadowRgb[2];
-          }
+          const t = (l - 0.5) * 2;
+          finalR = lerp(midRgb[0], lightRgb[0], t);
+          finalG = lerp(midRgb[1], lightRgb[1], t);
+          finalB = lerp(midRgb[2], lightRgb[2], t);
         }
-      } else if (params.renderMode === 'monochrome') {
-        const v = outCh[0] >= 0.5 ? 255 : 0;
-        finalR = v; finalG = v; finalB = v;
-      } else if (params.renderMode === 'duotone') {
-        const t = outCh[0];
-        finalR = Math.round(lerp(shadowRgb[0], highlightRgb[0], t));
-        finalG = Math.round(lerp(shadowRgb[1], highlightRgb[1], t));
-        finalB = Math.round(lerp(shadowRgb[2], highlightRgb[2], t));
-      } else if (params.renderMode === 'cmyk') {
-        const kMul = outCh[3];
-        finalR = Math.round(clamp(outCh[0] * kMul, 0, 1) * 255);
-        finalG = Math.round(clamp(outCh[1] * kMul, 0, 1) * 255);
-        finalB = Math.round(clamp(outCh[2] * kMul, 0, 1) * 255);
-      } else {
-        // Color Grade
-        if (params.colorspace === 'gray') {
-          const v = Math.round(outCh[0] * 255);
-          finalR = v; finalG = v; finalB = v;
-        } else if (params.colorspace === 'rgb') {
-          finalR = Math.round(outCh[0] * 255);
-          finalG = Math.round(outCh[1] * 255);
-          finalB = Math.round(outCh[2] * 255);
-        } else {
-          // Indexed
-          if (activePalette.length > 0) {
-            const tr = orig[idx];
-            const tg = orig[idx + 1];
-            const tb = orig[idx + 2];
-            let bestDist = Infinity;
-            let bestColor = activePalette[0];
-            for (const col of activePalette) {
-              const dr = tr - col[0];
-              const dg = tg - col[1];
-              const db = tb - col[2];
-              const dist = dr * dr + dg * dg + db * db;
-              if (dist < bestDist) {
-                bestDist = dist;
-                bestColor = col;
-              }
-            }
-            finalR = bestColor[0]; finalG = bestColor[1]; finalB = bestColor[2];
-          }
+      } else if (settings.mode === 'indexed') {
+        const palLen = activePaletteRgb.length;
+        if (palLen > 0) {
+          const palIdx = Math.min(palLen - 1, Math.floor(v[0] * palLen));
+          finalR = activePaletteRgb[palIdx][0];
+          finalG = activePaletteRgb[palIdx][1];
+          finalB = activePaletteRgb[palIdx][2];
         }
       }
 
-      // Density gating
-      let prob = masterAmount;
-      let gateSeed = 0x51a7;
-      if (params.renderMode === 'monochrome') {
-        if (outCh[0] >= 0.5) {
-          prob = masterAmount * whiteCov;
-          gateSeed = 0x93e1;
+      let prob = masterCov;
+      let gateSeed = 0x51A7;
+      if (settings.mode === 'mono') {
+        if (v[0] >= 0.5) {
+          prob = masterCov * whiteCov;
+          gateSeed = 0x93E1;
         } else {
-          prob = masterAmount * blackCov;
-          gateSeed = 0x48d2;
+          prob = masterCov * blackCov;
+          gateSeed = 0x48D2;
         }
       }
 
       const gate = u01(hash3(x, y, seed ^ gateSeed));
       if (gate < prob) {
-        data[idx] = finalR;
-        data[idx + 1] = finalG;
-        data[idx + 2] = finalB;
-        data[idx + 3] = finalA;
+        dst[pIdx]     = Math.round(finalR * 255);
+        dst[pIdx + 1] = Math.round(finalG * 255);
+        dst[pIdx + 2] = Math.round(finalB * 255);
       } else {
-        data[idx] = orig[idx];
-        data[idx + 1] = orig[idx + 1];
-        data[idx + 2] = orig[idx + 2];
-        data[idx + 3] = orig[idx + 3];
+        dst[pIdx]     = Math.round(buf[pIdx] * 255);
+        dst[pIdx + 1] = Math.round(buf[pIdx + 1] * 255);
+        dst[pIdx + 2] = Math.round(buf[pIdx + 2] * 255);
       }
+      dst[pIdx + 3] = Math.round(buf[pIdx + 3] * 255);
     }
   }
 
-  return output;
+  return outData;
 }

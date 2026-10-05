@@ -1,117 +1,118 @@
-import { ContourLinesConfig } from '../types/dither';
-import { hexToRgb } from './paletteData';
+import { DitherSettings } from '../types/dither';
+import { hexToRgb } from './ditherEngine';
 
-/**
- * Procedural Edge-Guided Contour Lines & Strands Engine
- * Ported from core/lines.cpp
- */
-export function renderContourLines(
-  ctx: CanvasRenderingContext2D,
-  imageData: ImageData,
-  config: ContourLinesConfig
+interface ContourPoint {
+  x: number;
+  y: number;
+  angle: number;
+}
+
+export function renderLinesOverlay(
+  targetCtx: CanvasRenderingContext2D,
+  srcData: ImageData,
+  settings: DitherSettings
 ) {
-  if (!config.enabled || config.amount <= 0) return;
+  if (!settings.enableLines || settings.linesAmount <= 0) return;
 
-  const width = imageData.width;
-  const height = imageData.height;
-  const data = imageData.data;
+  const W = srcData.width;
+  const H = srcData.height;
+  const src = srcData.data;
 
-  // Compute Sobel luminance gradients for edge contour detection
-  const luma = new Float32Array(width * height);
-  for (let i = 0; i < luma.length; i++) {
-    const idx = i * 4;
-    luma[i] = 0.2126 * data[idx] + 0.7152 * data[idx + 1] + 0.0722 * data[idx + 2];
-  }
+  // Extract edges if Object Mode is ON
+  const edgePoints: ContourPoint[] = [];
 
-  const gradX = new Float32Array(width * height);
-  const gradY = new Float32Array(width * height);
-  const gradMag = new Float32Array(width * height);
-
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
-      const idx = y * width + x;
-      // Sobel 3x3
-      const gx =
-        -luma[(y - 1) * width + (x - 1)] + luma[(y - 1) * width + (x + 1)]
-        - 2 * luma[y * width + (x - 1)] + 2 * luma[y * width + (x + 1)]
-        - luma[(y + 1) * width + (x - 1)] + luma[(y + 1) * width + (x + 1)];
-
-      const gy =
-        -luma[(y - 1) * width + (x - 1)] - 2 * luma[(y - 1) * width + x] - luma[(y - 1) * width + (x + 1)]
-        + luma[(y + 1) * width + (x - 1)] + 2 * luma[(y + 1) * width + x] + luma[(y + 1) * width + (x + 1)];
-
-      gradX[idx] = gx;
-      gradY[idx] = gy;
-      gradMag[idx] = Math.sqrt(gx * gx + gy * gy);
+  if (settings.lineObjectMode) {
+    const luma = new Float32Array(W * H);
+    for (let i = 0; i < W * H; i++) {
+      const idx = i * 4;
+      luma[i] = 0.2126 * (src[idx] / 255) + 0.7152 * (src[idx + 1] / 255) + 0.0722 * (src[idx + 2] / 255);
     }
-  }
 
-  // Find candidate edge seed points
-  const candidateSeeds: Array<{ x: number; y: number; mag: number }> = [];
-  const step = 4;
-  for (let y = 4; y < height - 4; y += step) {
-    for (let x = 4; x < width - 4; x += step) {
-      const mag = gradMag[y * width + x];
-      if (mag > 40) {
-        candidateSeeds.push({ x, y, mag });
+    const threshold = (settings.lineEdgeThreshold / 100.0) * 0.4;
+    // Sobel gradient
+    for (let y = 2; y < H - 2; y += 2) {
+      for (let x = 2; x < W - 2; x += 2) {
+        const tl = luma[(y - 1) * W + (x - 1)], t = luma[(y - 1) * W + x], tr = luma[(y - 1) * W + (x + 1)];
+        const l  = luma[y * W + (x - 1)],                                   r  = luma[y * W + (x + 1)];
+        const bl = luma[(y + 1) * W + (x - 1)], b = luma[(y + 1) * W + x], br = luma[(y + 1) * W + (x + 1)];
+
+        const gx = (tr + 2 * r + br) - (tl + 2 * l + bl);
+        const gy = (bl + 2 * b + br) - (tl + 2 * t + tr);
+        const mag = Math.sqrt(gx * gx + gy * gy);
+
+        if (mag > threshold) {
+          // Tangent angle is perpendicular to gradient
+          const angle = Math.atan2(gy, gx) + Math.PI / 2;
+          edgePoints.push({ x, y, angle });
+        }
       }
     }
   }
 
-  // Setup drawing context
-  ctx.save();
-  ctx.strokeStyle = config.color;
-  ctx.lineWidth = Math.max(0.5, config.width);
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.globalAlpha = (config.opacity / 100.0) * 0.85;
+  const [lr, lg, lb] = hexToRgb(settings.lineColor);
+  const opacity = (settings.lineOpacity / 100.0);
+  targetCtx.save();
+  targetCtx.strokeStyle = `rgba(${Math.round(lr * 255)}, ${Math.round(lg * 255)}, ${Math.round(lb * 255)}, ${opacity})`;
+  targetCtx.lineWidth = Math.max(0.2, settings.lineWidth);
+  targetCtx.lineCap = 'round';
+  targetCtx.lineJoin = 'round';
 
-  const count = Math.min(config.amount, candidateSeeds.length > 0 && config.edgeGuided ? candidateSeeds.length : config.amount);
-  const baseLen = config.length;
-  const curvAmt = (config.curvature / 100.0) * 25.0;
+  const count = Math.min(settings.linesAmount, settings.lineObjectMode ? edgePoints.length : settings.linesAmount);
+  const len = settings.lineLength;
+  const curveAmt = settings.lineHandMade ? (settings.lineCurve / 100.0) * 15 : 0;
 
   for (let i = 0; i < count; i++) {
-    let startX = 0, startY = 0, baseAngle = 0;
+    let startX = 0, startY = 0, angle = 0;
 
-    if (config.edgeGuided && candidateSeeds.length > 0) {
-      const seed = candidateSeeds[(i * 7 + 13) % candidateSeeds.length];
-      startX = seed.x;
-      startY = seed.y;
-      // Perpendicular to gradient = along the contour edge
-      const gx = gradX[startY * width + startX];
-      const gy = gradY[startY * width + startX];
-      baseAngle = Math.atan2(gy, gx) + Math.PI / 2.0;
+    if (settings.lineObjectMode && edgePoints.length > 0) {
+      const idx = Math.floor(Math.random() * edgePoints.length);
+      const pt = edgePoints[idx];
+      startX = pt.x;
+      startY = pt.y;
+      angle = pt.angle + (Math.random() - 0.5) * 0.2;
     } else {
-      startX = Math.random() * width;
-      startY = Math.random() * height;
-      baseAngle = Math.random() * Math.PI * 2;
+      startX = Math.random() * W;
+      startY = Math.random() * H;
+      angle = Math.random() * Math.PI * 2;
     }
 
-    const strandLen = baseLen * (0.6 + Math.random() * 0.8);
-    const midX = startX + Math.cos(baseAngle) * (strandLen * 0.5) + (Math.random() - 0.5) * curvAmt;
-    const midY = startY + Math.sin(baseAngle) * (strandLen * 0.5) + (Math.random() - 0.5) * curvAmt;
-    const endX = startX + Math.cos(baseAngle) * strandLen;
-    const endY = startY + Math.sin(baseAngle) * strandLen;
+    const randLen = len * (1.0 + (Math.random() - 0.5) * (settings.lineLengthRand / 100.0));
+    const endX = startX + Math.cos(angle) * randLen;
+    const endY = startY + Math.sin(angle) * randLen;
 
-    // Draw primary strand
-    ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.quadraticCurveTo(midX, midY, endX, endY);
-    ctx.stroke();
+    const renderSingleStrand = (ox: number, oy: number, w: number, alphaMult: number) => {
+      targetCtx.beginPath();
+      targetCtx.lineWidth = w;
+      targetCtx.strokeStyle = `rgba(${Math.round(lr * 255)}, ${Math.round(lg * 255)}, ${Math.round(lb * 255)}, ${opacity * alphaMult})`;
 
-    // Draw duplicate companion line if enabled
-    if (config.duplicate) {
-      const offDist = 2.5;
-      const offAngle = baseAngle + Math.PI / 2;
-      const dx = Math.cos(offAngle) * offDist;
-      const dy = Math.sin(offAngle) * offDist;
+      if (curveAmt > 0) {
+        const midX = (startX + endX) * 0.5 + ox + Math.sin(angle) * (Math.random() - 0.5) * curveAmt;
+        const midY = (startY + endY) * 0.5 + oy - Math.cos(angle) * (Math.random() - 0.5) * curveAmt;
+        targetCtx.moveTo(startX + ox, startY + oy);
+        targetCtx.quadraticCurveTo(midX, midY, endX + ox, endY + oy);
+      } else {
+        targetCtx.moveTo(startX + ox, startY + oy);
+        targetCtx.lineTo(endX + ox, endY + oy);
+      }
+      targetCtx.stroke();
+    };
 
-      ctx.beginPath();
-      ctx.moveTo(startX + dx, startY + dy);
-      ctx.quadraticCurveTo(midX + dx, midY + dy, endX + dx, endY + dy);
-      ctx.stroke();
+    // Main line
+    renderSingleStrand(0, 0, settings.lineWidth, 1.0);
+
+    // Duplicate companion lines
+    if (settings.lineDuplicate) {
+      const normalX = -Math.sin(angle);
+      const normalY = Math.cos(angle);
+      const dupCount = Math.min(4, Math.max(1, settings.lineDuplicateCount));
+      const dupOffset = settings.lineDuplicateOffset;
+
+      for (let d = 1; d <= dupCount; d++) {
+        const off = (d % 2 === 1 ? 1 : -1) * Math.ceil(d / 2) * dupOffset;
+        renderSingleStrand(normalX * off, normalY * off, Math.max(0.2, settings.lineWidth * 0.75), 0.75);
+      }
     }
   }
 
-  ctx.restore();
+  targetCtx.restore();
 }
