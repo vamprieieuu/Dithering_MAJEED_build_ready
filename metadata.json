@@ -1,5 +1,8 @@
 {
-  "name": "YMDithers Studio",
-  "description": "Web port of the YMDithers C++ After Effects plugin featuring 49 native dithering & halftone algorithms and Canny contour-following procedural lines.",
-  "requestFramePermissions": []
+  "name": "YMDithers — Native After Effects Plugin & Interactive Preview",
+  "description": "Native Adobe After Effects 23.2.1 SmartFX plugin (YMDithers.aex) featuring 49 Dither & Halftone algorithms and real contour-following Lines effect, with live interactive simulator and direct AEX binary download.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

@@ -225,7 +225,7 @@ enum LinesColorMode { LCM_SINGLE = 0, LCM_RANDOM = 1, LCM_SAMPLED = 2 };
 enum LinesEdgeDir { LED_ALONG = 0, LED_PERP = 1, LED_RANDOM = 2, LED_CUSTOM = 3 };
 
 struct LinesParams {
-    bool   enabled = true;
+    bool   enabled = false;         // [ ] Enable Lines checkbox (default OFF)
     double amount = 600;            // Strand count
     double density = 100;
     double length = 50;             // Base strand length in px
@@ -269,7 +269,7 @@ struct LinesParams {
     int    seed = 1;
     
     // Object mode (Edge-guided contour following - ZERO gap!)
-    bool   objectMode = true;       // [ ] Object checkbox (default ON)
+    bool   objectMode = false;      // [ ] Object checkbox (default OFF)
     double edgeThreshold = 25;      // Edge gradient sensitivity threshold (0..100)
     double edgeSensitivity = 75;    // Edge contrast gain (0..100)
     double edgeDensity = 80;        // Density of strands along edges (0..100)

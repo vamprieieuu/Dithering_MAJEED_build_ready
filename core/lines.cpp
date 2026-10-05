@@ -1,19 +1,21 @@
 // ============================================================================
 // YMDithers LINES - Strict Contour Following & Procedural Strands Engine.
 //   * [ ] Object Checkbox:
-//       - When checked (ON): Multi-scale Gaussian pre-filtering, Sobel gradient,
-//         Canny Non-Maximum Suppression (NMS), and connected contour chain tracing.
+//       - When OFF (default): Standard procedural strokes across the layer.
+//       - When ON: Multi-scale Gaussian pre-filtering, multi-channel Sobel gradient,
+//         Canny Non-Maximum Suppression (NMS) with subpixel ridge refinement,
+//         and connected 8-directional contour chain tracing.
 //         Lines adhere strictly to the object contours with ZERO gap/offset.
-//       - When unchecked (OFF): Standard procedural strokes across the layer.
 //   * [ ] Hand Made Lines Checkbox:
 //       - Organic hand-drawn deviation, subtle wobble, and natural variation.
 //       - Controlled by the "Curve" parameter (0 = straight, 100 = pronounced curve).
-//       - Stays anchored to the contour without drifting away.
+//       - Stays firmly anchored to the contour without drifting away.
 //   * [ ] Duplicate Lines Checkbox:
 //       - Creates companion parallel lines hugging the exact same contour.
 //       - Independent controls for count, offset spacing, length, width, opacity.
-//   * Deterministic time/frame-based animation along contours without flickering.
-//   * Crash-proof bounded memory and pointer safety.
+//   * Continuous contour-attached animation without detaching from edges.
+//   * 100% crash-proof: bounded memory, NaN/Inf sanitization, division-by-zero
+//     guards, and fast row-banded bounding-box rasterizer (handles 10,000+ count).
 // ============================================================================
 #include "majeed_core.h"
 #include <vector>
@@ -44,6 +46,11 @@ struct ContourChain {
     float totalLength = 0.f;
 };
 
+// Safe float validation
+inline float safe_flt(float v, float dflt = 0.f) {
+    return (std::isnan(v) || std::isinf(v)) ? dflt : v;
+}
+
 // ---------------------------------------------------------------------------
 // 1. Canny-Style NMS + Hysteresis Contour Chain Extractor
 // ---------------------------------------------------------------------------
@@ -53,27 +60,33 @@ void extract_object_contours(const Image& src, float threshold, float sensitivit
     const int W = src.w, H = src.h;
     if (W < 6 || H < 6) return;
 
+    const size_t totalPixels = (size_t)W * H;
+
     // A. Luminance + Alpha + Chrominance extraction (handles alpha cutouts & chromatic edges)
-    std::vector<float> luma((size_t)W * H, 0.f);
-    std::vector<float> alpha((size_t)W * H, 0.f);
-    std::vector<float> r_ch((size_t)W * H, 0.f);
-    std::vector<float> g_ch((size_t)W * H, 0.f);
-    std::vector<float> b_ch((size_t)W * H, 0.f);
+    std::vector<float> luma(totalPixels, 0.f);
+    std::vector<float> alpha(totalPixels, 0.f);
+    std::vector<float> r_ch(totalPixels, 0.f);
+    std::vector<float> g_ch(totalPixels, 0.f);
+    std::vector<float> b_ch(totalPixels, 0.f);
+
     for (int y = 0; y < H; ++y) {
         for (int x = 0; x < W; ++x) {
             const float* p = src.at(x, y);
-            const float a = clampf(p[3], 0.f, 1.f);
+            const float a = clampf(safe_flt(p[3], 1.f), 0.f, 1.f);
+            const float r = safe_flt(p[0], 0.f);
+            const float g = safe_flt(p[1], 0.f);
+            const float b = safe_flt(p[2], 0.f);
             const size_t idx = (size_t)y * W + x;
-            // Weight RGB by alpha so transparent cutout boundaries have crisp luminance gradients
-            r_ch[idx] = p[0] * a;
-            g_ch[idx] = p[1] * a;
-            b_ch[idx] = p[2] * a;
+
+            r_ch[idx] = r * a;
+            g_ch[idx] = g * a;
+            b_ch[idx] = b * a;
             luma[idx] = luma709(r_ch[idx], g_ch[idx], b_ch[idx]);
             alpha[idx] = a;
         }
     }
 
-    // B. Separable 3x3 Gaussian smoothing to suppress sensor/noise specks
+    // B. Separable 3x3 Gaussian smoothing to suppress sensor noise & specks
     auto smooth3x3 = [&](const std::vector<float>& in, std::vector<float>& out) {
         for (int y = 0; y < H; ++y) {
             int ym = std::max(0, y - 1), yp = std::min(H - 1, y + 1);
@@ -89,16 +102,16 @@ void extract_object_contours(const Image& src, float threshold, float sensitivit
         }
     };
 
-    std::vector<float> smooth((size_t)W * H, 0.f);
-    std::vector<float> smoothA((size_t)W * H, 0.f);
+    std::vector<float> smooth(totalPixels, 0.f);
+    std::vector<float> smoothA(totalPixels, 0.f);
     smooth3x3(luma, smooth);
     smooth3x3(alpha, smoothA);
 
-    // C. Sobel Gradients & Magnitudes (combining luminance, alpha silhouette, and RGB color edges)
-    std::vector<float> gx_buf((size_t)W * H, 0.f);
-    std::vector<float> gy_buf((size_t)W * H, 0.f);
-    std::vector<float> mag_buf((size_t)W * H, 0.f);
-    const float gain = std::max(0.4f, sensitivity / 45.f);
+    // C. Sobel Gradients & Magnitudes
+    std::vector<float> gx_buf(totalPixels, 0.f);
+    std::vector<float> gy_buf(totalPixels, 0.f);
+    std::vector<float> mag_buf(totalPixels, 0.f);
+    const float gain = std::max(0.3f, (float)(sensitivity / 35.0f));
     float maxMag = 0.f;
 
     auto sobelAt = [&](const std::vector<float>& buf, int x, int y, float& gx, float& gy) {
@@ -123,7 +136,7 @@ void extract_object_contours(const Image& src, float threshold, float sensitivit
             float mR = std::hypot(gxR, gyR);
             float mG = std::hypot(gxG, gyG);
             float mB = std::hypot(gxB, gyB);
-            float mC = std::max({ mR, mG, mB }) * 0.7f;
+            float mC = std::max({ mR, mG, mB }) * 0.75f;
 
             float gx = gxL, gy = gyL, m = mL;
             if (mA > m) { gx = gxA; gy = gyA; m = mA; }
@@ -145,10 +158,11 @@ void extract_object_contours(const Image& src, float threshold, float sensitivit
 
     if (maxMag < 1e-4f) return;
 
-    // D. Non-Maximum Suppression (NMS) + Hysteresis Contour Tracing
-    auto run_nms_and_trace = [&](float tHigh, float tLow, int minNodes, float minLen) {
-        contours.clear();
-        std::vector<float> nms_buf((size_t)W * H, 0.f);
+    // D. Non-Maximum Suppression (NMS) + Subpixel Ridge Refinement + Hysteresis Tracing
+    auto run_nms_and_trace = [&](float tHigh, float tLow, int minNodes, float minLen) -> bool {
+        std::vector<float> nms_buf(totalPixels, 0.f);
+        std::vector<float> sub_dx(totalPixels, 0.f);
+        std::vector<float> sub_dy(totalPixels, 0.f);
 
         for (int y = 2; y < H - 2; ++y) {
             for (int x = 2; x < W - 2; ++x) {
@@ -162,41 +176,44 @@ void extract_object_contours(const Image& src, float threshold, float sensitivit
                 float absGy = std::fabs(gy);
 
                 float n0 = 0.f, n1 = 0.f;
-                // 4 directional sectors (gy grows downward, so gx*gy > 0 is NW-SE)
+                // Directional sectors
                 if (absGx > absGy * 2.4142f) {
-                    // Horizontal normal -> compare West / East
                     n0 = mag_buf[idx - 1];
                     n1 = mag_buf[idx + 1];
                 } else if (absGy > absGx * 2.4142f) {
-                    // Vertical normal -> compare North / South
                     n0 = mag_buf[idx - W];
                     n1 = mag_buf[idx + W];
                 } else if ((gx > 0 && gy > 0) || (gx < 0 && gy < 0)) {
-                    // 45 deg diagonal -> compare NW / SE
                     n0 = mag_buf[idx - W - 1];
                     n1 = mag_buf[idx + W + 1];
                 } else {
-                    // 135 deg diagonal -> compare NE / SW
                     n0 = mag_buf[idx - W + 1];
                     n1 = mag_buf[idx + W - 1];
                 }
 
                 if (m >= n0 && m >= n1 - 1e-5f) {
                     nms_buf[idx] = m;
+
+                    // Quadratic subpixel peak estimation along normal for zero gap
+                    float denom = n0 - 2.f * m + n1;
+                    float delta = 0.f;
+                    if (std::fabs(denom) > 1e-5f) {
+                        delta = clampf(0.5f * (n0 - n1) / denom, -0.5f, 0.5f);
+                    }
+                    float invL = 1.f / std::max(1e-5f, std::hypot(gx, gy));
+                    sub_dx[idx] = delta * gx * invL;
+                    sub_dy[idx] = delta * gy * invL;
                 }
             }
         }
 
-        // E. Connected Contour Tracing (Bi-directional Hysteresis Linking)
-        std::vector<uint8_t> visited((size_t)W * H, 0);
+        std::vector<uint8_t> visited(totalPixels, 0);
         static const int dx8[8] = { 1,  1,  0, -1, -1, -1,  0,  1 };
         static const int dy8[8] = { 0,  1,  1,  1,  0, -1, -1, -1 };
 
-        contours.reserve(std::min(maxContours, 2048));
-
         auto trace_half = [&](int startX, int startY, std::vector<std::pair<int, int>>& pts) {
             int cx = startX, cy = startY;
-            while (pts.size() < 2000) {
+            while (pts.size() < 4000) {
                 int nextX = -1, nextY = -1;
                 float bestMag = tLow;
                 for (int k = 0; k < 8; ++k) {
@@ -210,7 +227,7 @@ void extract_object_contours(const Image& src, float threshold, float sensitivit
                         nextY = nyPos;
                     }
                 }
-                // Bridge 1-pixel diagonal/quantization gaps along the contour
+                // Bridge 1-pixel diagonal gaps
                 if (nextX == -1) {
                     for (int dy = -2; dy <= 2; ++dy) {
                         for (int dx = -2; dx <= 2; ++dx) {
@@ -254,7 +271,10 @@ void extract_object_contours(const Image& src, float threshold, float sensitivit
                 ContourChain chain;
                 chain.nodes.reserve(ordered.size());
                 float cumLen = 0.f;
-                float prevX = (float)ordered[0].first, prevY = (float)ordered[0].second;
+
+                float firstX = (float)ordered[0].first + sub_dx[(size_t)ordered[0].second * W + ordered[0].first];
+                float firstY = (float)ordered[0].second + sub_dy[(size_t)ordered[0].second * W + ordered[0].first];
+                float prevX = firstX, prevY = firstY;
 
                 for (size_t i = 0; i < ordered.size(); ++i) {
                     int cx = ordered[i].first, cy = ordered[i].second;
@@ -264,30 +284,42 @@ void extract_object_contours(const Image& src, float threshold, float sensitivit
                     float nx = gx * invL, ny = gy * invL;
                     float tx = -ny, ty = nx;
 
+                    float subX = (float)cx + sub_dx[curIdx];
+                    float subY = (float)cy + sub_dy[curIdx];
+
                     if (i > 0) {
-                        cumLen += std::hypot((float)cx - prevX, (float)cy - prevY);
-                        prevX = (float)cx;
-                        prevY = (float)cy;
+                        cumLen += std::hypot(subX - prevX, subY - prevY);
+                        prevX = subX;
+                        prevY = subY;
                     }
-                    chain.nodes.push_back({ (float)cx, (float)cy, nx, ny, tx, ty, cumLen });
+                    chain.nodes.push_back({ subX, subY, nx, ny, tx, ty, cumLen });
                 }
 
                 if ((int)chain.nodes.size() >= minNodes && cumLen >= minLen) {
                     chain.totalLength = cumLen;
                     contours.push_back(std::move(chain));
-                    if ((int)contours.size() >= maxContours) return;
+                    if ((int)contours.size() >= maxContours) return true;
                 }
             }
         }
+        return !contours.empty();
     };
 
-    const float baseHigh = clampf(threshold / 100.f, 0.03f, 0.85f);
-    const float effHigh = std::min(baseHigh, std::max(0.02f, maxMag * 0.55f));
-    run_nms_and_trace(effHigh, effHigh * 0.35f, 5, 4.f);
+    // Robust adaptive thresholds (guarantees detection across high/low contrast)
+    const float userNorm = clampf((float)(threshold / 100.0f), 0.01f, 1.0f);
+    const float effHigh = std::max(0.015f, userNorm * std::min(1.2f, maxMag * 0.45f));
+    const float effLow = effHigh * 0.35f;
 
+    bool found = run_nms_and_trace(effHigh, effLow, 4, 3.f);
+    if (!found || contours.size() < 3) {
+        // Fallback 1: lower sensitivity threshold for soft edges / skin tones
+        const float fallHigh = std::max(0.008f, effHigh * 0.4f);
+        run_nms_and_trace(fallHigh, fallHigh * 0.35f, 3, 2.f);
+    }
     if (contours.empty()) {
-        const float fallbackHigh = std::max(0.01f, maxMag * 0.25f);
-        run_nms_and_trace(fallbackHigh, fallbackHigh * 0.25f, 3, 2.f);
+        // Fallback 2: minimal threshold so ANY frame with visible variance gets lines
+        const float minHigh = std::max(0.003f, maxMag * 0.08f);
+        run_nms_and_trace(minHigh, minHigh * 0.25f, 2, 1.5f);
     }
 }
 
@@ -295,6 +327,8 @@ void extract_object_contours(const Image& src, float threshold, float sensitivit
 inline void evaluate_contour(const ContourChain& chain, float s, float& ox, float& oy,
                              float& onx, float& ony, float& otx, float& oty) {
     if (chain.nodes.empty()) { ox = oy = onx = ony = otx = oty = 0.f; return; }
+    s = safe_flt(s, 0.f);
+
     if (s <= 0.f || chain.nodes.size() == 1) {
         const auto& n = chain.nodes.front();
         ox = n.x; oy = n.y; onx = n.nx; ony = n.ny; otx = n.tx; oty = n.ty;
@@ -306,7 +340,6 @@ inline void evaluate_contour(const ContourChain& chain, float s, float& ox, floa
         return;
     }
 
-    // Binary search for node span
     size_t low = 0, high = chain.nodes.size() - 1;
     while (low + 1 < high) {
         size_t mid = (low + high) >> 1;
@@ -336,6 +369,7 @@ void render_lines(const Image& src, const Image& dst, const LinesParams& p, cons
     if (!src.px || !dst.px || src.w <= 0 || src.h <= 0) return;
     const int W = src.w, H = src.h;
 
+    // Requirement 1: If Lines is OFF or Amount <= 0, no lines render!
     if (!p.enabled || p.amount <= 0.1 || p.opacity <= 0.1) {
         std::memcpy(dst.px, src.px, (size_t)W * H * 4 * sizeof(float));
         return;
@@ -344,15 +378,15 @@ void render_lines(const Image& src, const Image& dst, const LinesParams& p, cons
     // Copy source image to destination initially
     std::memcpy(dst.px, src.px, (size_t)W * H * 4 * sizeof(float));
 
-    // Bounds limit to ensure zero crash even with 60,000 requested
-    const int maxStrandsAllowed = 12000;
-    const int count = (int)std::max(1.0, std::min(p.amount, (double)maxStrandsAllowed));
+    // Bounds limit to ensure zero crash even with maximum 10,000 requested
+    const int count = (int)clampf((float)p.amount, 1.f, 10000.f);
     const uint32_t seed = hash_u32((uint32_t)p.seed * 19937u + 0x51A8Du);
     const double animTime = p.autoAnim ? (c.timeSec * (p.motionSpeed / 100.0)) : 0.0;
     const int animFrame = c.frame();
 
     std::vector<LineSeg> allSegs;
-    allSegs.reserve((size_t)count * (p.duplicate ? (p.duplicateCount + 1) : 1) * 8);
+    const size_t maxEstSegs = (size_t)count * (p.duplicate ? (p.duplicateCount + 1) : 1) * 12;
+    allSegs.reserve(std::min((size_t)150000, maxEstSegs));
 
     // =======================================================================
     // BRANCH A: OBJECT ON -> Contour Following (Zero Gap)
@@ -363,7 +397,6 @@ void render_lines(const Image& src, const Image& dst, const LinesParams& p, cons
         extract_object_contours(edgeSrc, (float)p.edgeThreshold, (float)p.edgeSensitivity, contours, 2048);
 
         if (!contours.empty()) {
-            // Compute cumulative length table for proportional sampling
             std::vector<float> cumLengths;
             cumLengths.reserve(contours.size());
             float totalSystemLen = 0.f;
@@ -372,141 +405,149 @@ void render_lines(const Image& src, const Image& dst, const LinesParams& p, cons
                 cumLengths.push_back(totalSystemLen);
             }
 
-            const float baseLen = (float)std::max(4.0, p.length);
-            const float lenRnd = (float)clampf((float)(p.lengthRand / 100.0), 0.f, 1.f);
-            const float baseThick = (float)clampf((float)p.width, 0.2f, 12.f);
-            const float thkRnd = (float)clampf((float)(p.widthRand / 100.0), 0.f, 1.f);
-            const float masterAlpha = (float)clampf((float)(p.opacity / 100.0), 0.f, 1.f);
-            const float curveAmt = p.handMade ? (float)clampf((float)(p.curve / 100.0), 0.f, 1.f) : 0.f;
+            if (totalSystemLen > 0.1f) {
+                const float baseLen = (float)std::max(4.0, p.length);
+                const float lenRnd = (float)clampf((float)(p.lengthRand / 100.0), 0.f, 1.f);
+                const float baseThick = (float)clampf((float)p.width, 0.2f, 15.f);
+                const float thkRnd = (float)clampf((float)(p.widthRand / 100.0), 0.f, 1.f);
+                const float masterAlpha = (float)clampf((float)(p.opacity / 100.0), 0.f, 1.f);
+                const float curveAmt = p.handMade ? (float)clampf((float)(p.curve / 100.0), 0.f, 1.f) : 0.f;
+                const float motRand = (float)clampf((float)(p.motionRand / 100.0), 0.f, 1.f);
 
-            for (int i = 0; i < count; ++i) {
-                uint32_t h = hash3(seed, (uint32_t)i, (uint32_t)(animFrame * (p.autoAnim ? 1 : 0)));
-                auto rnd = [&](uint32_t sub) { return u01(hash2(h, sub)); };
+                for (int i = 0; i < count; ++i) {
+                    uint32_t h = hash3(seed, (uint32_t)i, (uint32_t)(animFrame * (p.autoAnim ? 1 : 0)));
+                    auto rnd = [&](uint32_t sub) { return u01(hash2(h, sub)); };
 
-                // Proportional contour selection
-                float rPick = rnd(1) * totalSystemLen;
-                auto it = std::lower_bound(cumLengths.begin(), cumLengths.end(), rPick);
-                size_t cIdx = (it == cumLengths.end()) ? contours.size() - 1 : std::distance(cumLengths.begin(), it);
-                const ContourChain& chain = contours[cIdx];
-                if (chain.totalLength < 2.f) continue;
+                    // Proportional contour selection
+                    float rPick = rnd(1) * totalSystemLen;
+                    auto it = std::lower_bound(cumLengths.begin(), cumLengths.end(), rPick);
+                    size_t cIdx = (it == cumLengths.end()) ? contours.size() - 1 : std::distance(cumLengths.begin(), it);
+                    const ContourChain& chain = contours[cIdx];
+                    if (chain.totalLength < 1.5f || chain.nodes.empty()) continue;
 
-                // Length & thickness
-                float strandL = baseLen * (1.f + (rnd(2) * 2.f - 1.f) * lenRnd);
-                strandL = std::max(3.f, std::min(strandL, chain.totalLength));
-                float strandThick = baseThick * (1.f + (rnd(3) * 2.f - 1.f) * thkRnd);
-                strandThick = clampf(strandThick, 0.2f, 15.f);
+                    // Length & thickness
+                    float strandL = baseLen * (1.f + (rnd(2) * 2.f - 1.f) * lenRnd);
+                    strandL = std::max(3.f, std::min(strandL, chain.totalLength));
+                    float strandThick = baseThick * (1.f + (rnd(3) * 2.f - 1.f) * thkRnd);
+                    strandThick = clampf(strandThick, 0.2f, 15.f);
 
-                // Start arc-length parameter
-                const float motRandScale = 1.f + (rnd(11) * 2.f - 1.f) * clampf((float)(p.motionRand / 100.0), 0.f, 1.f) * 0.75f;
-                float s0 = rnd(4) * std::max(1.f, chain.totalLength - strandL);
-                if (p.autoAnim) {
-                    float drift = (float)(animTime * 35.0 * motRandScale + rnd(5) * 60.0);
-                    float span = std::max(1.f, chain.totalLength - strandL);
-                    s0 = std::fmod(s0 + drift, span);
-                    if (s0 < 0.f) s0 += span;
-                }
+                    // Start arc-length parameter
+                    const float motRandScale = 1.f + (rnd(11) * 2.f - 1.f) * motRand * 0.75f;
+                    float avail = std::max(0.1f, chain.totalLength - strandL);
+                    float baseS = rnd(4) * avail;
+                    float s0 = baseS;
 
-                // Color
-                float strandCol[3] = { p.color.r, p.color.g, p.color.b };
-                if (p.colorMode == LCM_SAMPLED) {
-                    float ex, ey, enx, eny, etx, ety;
-                    evaluate_contour(chain, s0, ex, ey, enx, eny, etx, ety);
-                    // Sample slightly toward interior along -normal so cutout edges don't sample transparent black
-                    int sx = std::max(0, std::min(W - 1, (int)std::floor(ex - enx * 1.5f)));
-                    int sy = std::max(0, std::min(H - 1, (int)std::floor(ey - eny * 1.5f)));
-                    const float* sc = edgeSrc.at(sx, sy);
-                    if (sc[3] < 0.1f) {
-                        sx = std::max(0, std::min(W - 1, (int)std::floor(ex + enx * 1.5f)));
-                        sy = std::max(0, std::min(H - 1, (int)std::floor(ey + eny * 1.5f)));
-                        sc = edgeSrc.at(sx, sy);
+                    // Requirement 8: Animation progresses strictly ALONG the contour (ZERO detaching!)
+                    if (p.autoAnim) {
+                        float drift = (float)(animTime * 45.0 * motRandScale + rnd(5) * 80.0);
+                        s0 = std::fmod(baseS + drift, chain.totalLength);
+                        if (s0 < 0.f) s0 += chain.totalLength;
                     }
-                    strandCol[0] = sc[0]; strandCol[1] = sc[1]; strandCol[2] = sc[2];
-                } else if (p.colorMode == LCM_RANDOM) {
-                    strandCol[0] = rnd(6); strandCol[1] = rnd(7); strandCol[2] = rnd(8);
-                }
 
-                float alpha = masterAlpha * (1.f - rnd(9) * 0.25f);
+                    // Color
+                    float strandCol[3] = { p.color.r, p.color.g, p.color.b };
+                    if (p.colorMode == LCM_SAMPLED) {
+                        float ex, ey, enx, eny, etx, ety;
+                        evaluate_contour(chain, s0, ex, ey, enx, eny, etx, ety);
+                        // Sample from image, with slight bias into interior along -normal to avoid transparent background
+                        int sx = std::max(0, std::min(W - 1, (int)std::floor(ex - enx * 1.5f)));
+                        int sy = std::max(0, std::min(H - 1, (int)std::floor(ey - eny * 1.5f)));
+                        const float* sc = edgeSrc.at(sx, sy);
+                        if (sc[3] < 0.05f) {
+                            sx = std::max(0, std::min(W - 1, (int)std::floor(ex + enx * 1.5f)));
+                            sy = std::max(0, std::min(H - 1, (int)std::floor(ey + eny * 1.5f)));
+                            sc = edgeSrc.at(sx, sy);
+                        }
+                        strandCol[0] = sc[0]; strandCol[1] = sc[1]; strandCol[2] = sc[2];
+                    } else if (p.colorMode == LCM_RANDOM) {
+                        strandCol[0] = rnd(6); strandCol[1] = rnd(7); strandCol[2] = rnd(8);
+                    }
 
-                // Function to build and emit one line along or anchored to the contour
-                auto emitLineAlongContour = [&](float normalOffset, float lenScale, float widthScale, float alphaScale) {
-                    float effLen = std::max(2.f, strandL * lenScale);
-                    int segCount = std::max(3, std::min(16, (int)std::ceil(effLen / 4.f)));
-                    float stepS = effLen / (float)segCount;
-                    float prevX = 0.f, prevY = 0.f;
-                    float wobblePhase = (rnd(12) - 0.5f) * 1.2f;
+                    float alpha = masterAlpha * (1.f - rnd(9) * 0.2f);
 
-                    if (p.edgeDirection == LED_ALONG) {
-                        for (int s = 0; s <= segCount; ++s) {
-                            float curS = s0 + s * stepS;
-                            float cx, cy, cnx, cny, ctx, cty;
-                            evaluate_contour(chain, curS, cx, cy, cnx, cny, ctx, cty);
+                    // Function to emit line segments along or anchored to the contour
+                    auto emitLineAlongContour = [&](float normalOffset, float lenScale, float widthScale, float alphaScale) {
+                        float effLen = std::max(2.f, strandL * lenScale);
+                        int segCount = std::max(3, std::min(16, (int)std::ceil(effLen / 4.5f)));
+                        float stepS = effLen / (float)segCount;
+                        float prevX = 0.f, prevY = 0.f;
+                        float wobblePhase = (rnd(12) - 0.5f) * 1.5f;
 
-                            // Hand-made organic deviation along normal (anchored at endpoints via sin(pi*frac))
-                            float handWobble = 0.f;
-                            if (p.handMade && curveAmt > 0.001f) {
-                                float frac = (float)s / (float)segCount;
-                                float env = std::sin(frac * 3.14159265f);
-                                float sinCurve = env * std::cos(wobblePhase) * curveAmt * 2.4f;
-                                float smallNoise = env * (rnd(20 + s) * 2.f - 1.f) * curveAmt * 0.7f;
-                                handWobble = sinCurve + smallNoise;
+                        if (p.edgeDirection == LED_ALONG) {
+                            for (int s = 0; s <= segCount; ++s) {
+                                float curS = std::fmod(s0 + s * stepS, chain.totalLength);
+                                if (curS < 0.f) curS += chain.totalLength;
+
+                                float cx, cy, cnx, cny, ctx, cty;
+                                evaluate_contour(chain, curS, cx, cy, cnx, cny, ctx, cty);
+
+                                // Hand-made organic deviation (anchored at endpoints via sin(pi*frac))
+                                float handWobble = 0.f;
+                                if (p.handMade && curveAmt > 0.001f) {
+                                    float frac = (float)s / (float)segCount;
+                                    float env = std::sin(frac * 3.14159265f);
+                                    float sinCurve = env * std::cos(wobblePhase + frac * 6.2831853f) * curveAmt * 2.2f;
+                                    float noise = env * (rnd(20 + s) * 2.f - 1.f) * curveAmt * 0.6f;
+                                    handWobble = sinCurve + noise;
+                                }
+
+                                float totalNormOffset = normalOffset + handWobble;
+                                float px = cx + cnx * totalNormOffset;
+                                float py = cy + cny * totalNormOffset;
+
+                                if (s > 0) {
+                                    float r = strandThick * widthScale * 0.5f;
+                                    allSegs.push_back({ prevX, prevY, px, py, r,
+                                                        { strandCol[0], strandCol[1], strandCol[2] },
+                                                        alpha * alphaScale });
+                                }
+                                prevX = px; prevY = py;
                             }
-
-                            float totalNormOffset = normalOffset + handWobble;
-                            float px = cx + cnx * totalNormOffset;
-                            float py = cy + cny * totalNormOffset;
-
-                            if (s > 0) {
+                        } else {
+                            // Anchored at contour point s0, extending along Perpendicular / Random / Custom angle
+                            float cx, cy, cnx, cny, ctx, cty;
+                            evaluate_contour(chain, s0, cx, cy, cnx, cny, ctx, cty);
+                            float dirAng = 0.f;
+                            if (p.edgeDirection == LED_PERP) {
+                                dirAng = std::atan2(cny, cnx);
+                            } else if (p.edgeDirection == LED_RANDOM) {
+                                dirAng = rnd(14) * 6.2831853f;
+                            } else {
+                                dirAng = (float)(p.angle * 0.017453292519943295);
+                            }
+                            float px = cx + cnx * normalOffset;
+                            float py = cy + cny * normalOffset;
+                            float curAng = dirAng;
+                            for (int s = 0; s < segCount; ++s) {
+                                if (p.handMade && curveAmt > 0.001f) {
+                                    curAng += (rnd(20 + s) * 2.f - 1.f) * curveAmt * 0.35f;
+                                }
+                                float nx = px + std::cos(curAng) * stepS;
+                                float ny = py + std::sin(curAng) * stepS;
                                 float r = strandThick * widthScale * 0.5f;
-                                allSegs.push_back({ prevX, prevY, px, py, r,
+                                allSegs.push_back({ px, py, nx, ny, r,
                                                     { strandCol[0], strandCol[1], strandCol[2] },
                                                     alpha * alphaScale });
+                                px = nx; py = ny;
                             }
-                            prevX = px; prevY = py;
                         }
-                    } else {
-                        // Anchored at contour point s0, extending along Perpendicular / Random / Custom angle
-                        float cx, cy, cnx, cny, ctx, cty;
-                        evaluate_contour(chain, s0, cx, cy, cnx, cny, ctx, cty);
-                        float dirAng = 0.f;
-                        if (p.edgeDirection == LED_PERP) {
-                            dirAng = std::atan2(cny, cnx);
-                        } else if (p.edgeDirection == LED_RANDOM) {
-                            dirAng = rnd(14) * 6.2831853f;
-                        } else {
-                            dirAng = (float)(p.angle * 0.017453292519943295);
+                    };
+
+                    // Primary line: offset is strictly p.edgeOffset (default 0 = tightly glued to contour!)
+                    emitLineAlongContour((float)p.edgeOffset, 1.f, 1.f, 1.f);
+
+                    // Requirement 11: Duplicate Lines hugging the same contour
+                    if (p.duplicate) {
+                        int dupN = std::max(1, std::min(4, p.duplicateCount));
+                        float dupSpacing = (float)p.duplicateOffset;
+                        float dupLScale = clampf((float)(p.duplicateLength / 100.0), 0.1f, 2.0f);
+                        float dupWScale = (float)(p.duplicateWidth / std::max(0.1, p.width));
+                        float dupAScale = (float)(p.duplicateOpacity / 100.0);
+
+                        for (int d = 1; d <= dupN; ++d) {
+                            float dupOffset = (float)p.edgeOffset + d * dupSpacing;
+                            emitLineAlongContour(dupOffset, dupLScale, dupWScale, dupAScale);
                         }
-                        float px = cx + cnx * normalOffset;
-                        float py = cy + cny * normalOffset;
-                        float curAng = dirAng;
-                        for (int s = 0; s < segCount; ++s) {
-                            if (p.handMade && curveAmt > 0.001f) {
-                                curAng += (rnd(20 + s) * 2.f - 1.f) * curveAmt * 0.35f;
-                            }
-                            float nx = px + std::cos(curAng) * stepS;
-                            float ny = py + std::sin(curAng) * stepS;
-                            float r = strandThick * widthScale * 0.5f;
-                            allSegs.push_back({ px, py, nx, ny, r,
-                                                { strandCol[0], strandCol[1], strandCol[2] },
-                                                alpha * alphaScale });
-                            px = nx; py = ny;
-                        }
-                    }
-                };
-
-                // Primary line: offset is strictly p.edgeOffset (default 0 = tightly glued to contour!)
-                emitLineAlongContour((float)p.edgeOffset, 1.f, 1.f, 1.f);
-
-                // Duplicate Lines
-                if (p.duplicate) {
-                    int dupN = std::max(1, std::min(4, p.duplicateCount));
-                    float dupSpacing = (float)p.duplicateOffset;
-                    float dupLScale = clampf((float)(p.duplicateLength / 100.0), 0.1f, 2.0f);
-                    float dupWScale = (float)(p.duplicateWidth / std::max(0.1, p.width));
-                    float dupAScale = (float)(p.duplicateOpacity / 100.0);
-
-                    for (int d = 1; d <= dupN; ++d) {
-                        float dupOffset = (float)p.edgeOffset + d * dupSpacing;
-                        emitLineAlongContour(dupOffset, dupLScale, dupWScale, dupAScale);
                     }
                 }
             }
@@ -518,12 +559,13 @@ void render_lines(const Image& src, const Image& dst, const LinesParams& p, cons
     else {
         const float baseLen = (float)std::max(4.0, p.length);
         const float lenRnd = (float)clampf((float)(p.lengthRand / 100.0), 0.f, 1.f);
-        const float baseThick = (float)clampf((float)p.width, 0.2f, 12.f);
+        const float baseThick = (float)clampf((float)p.width, 0.2f, 15.f);
         const float thkRnd = (float)clampf((float)(p.widthRand / 100.0), 0.f, 1.f);
         const float baseAngle = (float)(p.angle * 0.017453292519943295);
         const float angleSpread = (float)(clampf((float)p.angleRand, 0.f, 180.f) * 0.017453292519943295);
         const float masterAlpha = (float)clampf((float)(p.opacity / 100.0), 0.f, 1.f);
         const float curveAmt = p.handMade ? (float)clampf((float)(p.curve / 100.0), 0.f, 1.f) : 0.f;
+        const float motRand = clampf((float)(p.motionRand / 100.0), 0.f, 1.f);
 
         for (int i = 0; i < count; ++i) {
             uint32_t h = hash3(seed, (uint32_t)i, (uint32_t)(animFrame * (p.autoAnim ? 1 : 0)));
@@ -548,7 +590,6 @@ void render_lines(const Image& src, const Image& dst, const LinesParams& p, cons
             }
 
             float alpha = masterAlpha * (1.f - rnd(9) * 0.25f);
-            const float motRand = clampf((float)(p.motionRand / 100.0), 0.f, 1.f);
 
             auto emitProceduralLine = [&](float sideOffset, float lenScale, float widthScale, float alphaScale) {
                 float effLen = std::max(2.f, strandL * lenScale);
@@ -589,75 +630,81 @@ void render_lines(const Image& src, const Image& dst, const LinesParams& p, cons
     if (allSegs.empty()) return;
 
     // =======================================================================
-    // High-Performance Crash-Proof Spatial Rasterizer
+    // Fast Row-Banded Bounding-Box Rasterizer (Requirement 13 & 14)
+    // Runs in O(area touched) rather than O(W * H * Segments)
+    // Never crashes AE even with 10,000 lines
     // =======================================================================
-    // Spatial row bins to avoid O(N * W * H) brute force
-    const int binSize = 16;
-    const int numBins = (H + binSize - 1) / binSize;
-    std::vector<std::vector<uint32_t>> binSegs((size_t)numBins);
+    const int bandH = 32;
+    const int numBands = (H + bandH - 1) / bandH;
 
+    // Bin segments into bands
+    std::vector<std::vector<uint32_t>> bandSegs((size_t)numBands);
     for (size_t i = 0; i < allSegs.size(); ++i) {
         const auto& s = allSegs[i];
-        float pad = s.r + 1.5f;
-        int y0 = std::max(0, (int)std::floor((std::min(s.y0, s.y1) - pad) / binSize));
-        int y1 = std::min(numBins - 1, (int)std::floor((std::max(s.y0, s.y1) + pad) / binSize));
-        for (int b = y0; b <= y1; ++b) {
-            binSegs[(size_t)b].push_back((uint32_t)i);
+        if (std::isnan(s.x0) || std::isnan(s.y0) || std::isnan(s.x1) || std::isnan(s.y1)) continue;
+        float pad = s.r + 1.2f;
+        float minY = std::min(s.y0, s.y1) - pad;
+        float maxY = std::max(s.y0, s.y1) + pad;
+        if (maxY < 0.f || minY >= (float)H) continue;
+
+        int b0 = std::max(0, std::min(numBands - 1, (int)std::floor(minY / bandH)));
+        int b1 = std::max(0, std::min(numBands - 1, (int)std::floor(maxY / bandH)));
+        for (int b = b0; b <= b1; ++b) {
+            bandSegs[(size_t)b].push_back((uint32_t)i);
         }
     }
 
-    parallel_rows(numBins, [&](int b0, int b1) {
+    parallel_rows(numBands, [&](int b0, int b1) {
         for (int b = b0; b < b1; ++b) {
-            const auto& segIndices = binSegs[(size_t)b];
+            const auto& segIndices = bandSegs[(size_t)b];
             if (segIndices.empty()) continue;
 
-            int rowStart = b * binSize;
-            int rowEnd = std::min(H, (b + 1) * binSize);
+            const int rowStart = b * bandH;
+            const int rowEnd = std::min(H, (b + 1) * bandH);
 
-            for (int y = rowStart; y < rowEnd; ++y) {
-                float py = (float)y + 0.5f;
-                for (int x = 0; x < W; ++x) {
-                    float px = (float)x + 0.5f;
-                    float blendR = 0.f, blendG = 0.f, blendB = 0.f, blendA = 0.f;
+            for (uint32_t si : segIndices) {
+                const auto& s = allSegs[si];
+                const float pad = s.r + 1.2f;
+                const float segMinX = std::min(s.x0, s.x1) - pad;
+                const float segMaxX = std::max(s.x0, s.x1) + pad;
+                const float segMinY = std::min(s.y0, s.y1) - pad;
+                const float segMaxY = std::max(s.y0, s.y1) + pad;
 
-                    for (uint32_t si : segIndices) {
-                        const auto& s = allSegs[si];
-                        float pad = s.r + 1.2f;
-                        if (px < std::min(s.x0, s.x1) - pad || px > std::max(s.x0, s.x1) + pad ||
-                            py < std::min(s.y0, s.y1) - pad || py > std::max(s.y0, s.y1) + pad) {
-                            continue;
-                        }
+                int y0 = std::max(rowStart, std::min(rowEnd - 1, (int)std::floor(segMinY)));
+                int y1 = std::max(rowStart, std::min(rowEnd - 1, (int)std::ceil(segMaxY)));
+                int x0 = std::max(0, std::min(W - 1, (int)std::floor(segMinX)));
+                int x1 = std::max(0, std::min(W - 1, (int)std::ceil(segMaxX)));
 
-                        // Point to segment distance
-                        float vx = s.x1 - s.x0, vy = s.y1 - s.y0;
-                        float segLenSq = vx * vx + vy * vy;
-                        float u = segLenSq > 1e-5f ? clampf(((px - s.x0) * vx + (py - s.y0) * vy) / segLenSq, 0.f, 1.f) : 0.f;
-                        float qx = s.x0 + u * vx, qy = s.y0 + u * vy;
+                float vx = s.x1 - s.x0, vy = s.y1 - s.y0;
+                float segLenSq = vx * vx + vy * vy;
+                float invSegLenSq = segLenSq > 1e-5f ? (1.f / segLenSq) : 0.f;
+
+                for (int y = y0; y <= y1; ++y) {
+                    float py = (float)y + 0.5f;
+                    float dy = py - s.y0;
+                    for (int x = x0; x <= x1; ++x) {
+                        float px = (float)x + 0.5f;
+                        float dx = px - s.x0;
+
+                        float u = segLenSq > 1e-5f ? clampf((dx * vx + dy * vy) * invSegLenSq, 0.f, 1.f) : 0.f;
+                        float qx = s.x0 + u * vx;
+                        float qy = s.y0 + u * vy;
                         float dist = std::hypot(px - qx, py - qy);
 
                         if (dist < pad) {
                             float cov = clampf((pad - dist) / 1.2f, 0.f, 1.f) * s.alpha;
-                            // Porter-Duff Over composite
-                            float outA = cov + blendA * (1.f - cov);
-                            if (outA > 1e-4f) {
-                                blendR = (s.col[0] * cov + blendR * blendA * (1.f - cov)) / outA;
-                                blendG = (s.col[1] * cov + blendG * blendA * (1.f - cov)) / outA;
-                                blendB = (s.col[2] * cov + blendB * blendA * (1.f - cov)) / outA;
-                                blendA = outA;
+                            if (cov > 1e-4f) {
+                                float* o = dst.at(x, y);
+                                float baseA = clampf(o[3], 0.f, 1.f);
+                                float outA = cov + baseA * (1.f - cov);
+                                if (outA > 1e-5f) {
+                                    float invOutA = 1.f / outA;
+                                    o[0] = (s.col[0] * cov + o[0] * baseA * (1.f - cov)) * invOutA;
+                                    o[1] = (s.col[1] * cov + o[1] * baseA * (1.f - cov)) * invOutA;
+                                    o[2] = (s.col[2] * cov + o[2] * baseA * (1.f - cov)) * invOutA;
+                                    o[3] = outA;
+                                }
                             }
-                        }
-                    }
-
-                    if (blendA > 1e-4f) {
-                        float* o = dst.at(x, y);
-                        // Straight-alpha Porter-Duff Over composite so lines on transparent boundaries remain visible
-                        float baseA = clampf(o[3], 0.f, 1.f);
-                        float finalA = blendA + baseA * (1.f - blendA);
-                        if (finalA > 1e-5f) {
-                            o[0] = (blendR * blendA + o[0] * baseA * (1.f - blendA)) / finalA;
-                            o[1] = (blendG * blendA + o[1] * baseA * (1.f - blendA)) / finalA;
-                            o[2] = (blendB * blendA + o[2] * baseA * (1.f - blendA)) / finalA;
-                            o[3] = finalA;
                         }
                     }
                 }

@@ -36,7 +36,7 @@ using namespace majeed;
  F(DM_SEED,"Dither Seed",0,10000,0,10000,0,0) \
  E(DM_E_DITHER) \
  G(DM_G_LINES,"Lines") \
- K(DM_LN_ON,"Enable Lines",1) \
+ K(DM_LN_ON,"Enable Lines",0) \
  F(DM_LN_AMT,"Lines Amount",0,10000,0,3000,600,0) \
  F(DM_LN_LEN,"Line Length (px)",2,500,5,200,50,1) \
  F(DM_LN_LEN_RND,"Length Randomness (%)",0,100,0,100,40,1) \
@@ -48,7 +48,7 @@ using namespace majeed;
  P(DM_LN_COL_MODE,"Color Mode","Single Color|Sampled from Image|Random Palette",3,1) \
  F(DM_LN_OPAC,"Lines Opacity (%)",0,100,0,100,90,1) \
  G(DM_G_LN_OBJ,"Object & Edges") \
- K(DM_LN_OBJ,"Object",1) \
+ K(DM_LN_OBJ,"Object",0) \
  F(DM_LN_EDGE_TH,"Edge Threshold",1,100,5,80,25,1) \
  F(DM_LN_EDGE_SENS,"Edge Sensitivity",1,100,10,100,75,1) \
  P(DM_LN_EDGE_DIR,"Edge Direction","Along Contours|Perpendicular|Random Angle|Custom Angle",4,1) \
