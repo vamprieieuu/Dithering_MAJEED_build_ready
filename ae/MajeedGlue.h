@@ -6,15 +6,19 @@
 // Target: After Effects 23.2.1 SDK, MSVC / Visual Studio 2022.
 // ============================================================================
 #pragma once
+#define PF_DEEP_COLOR_AWARE 1
 #include "AEConfig.h"
 #include "entry.h"
 #include "AE_Effect.h"
 #include "AE_EffectCB.h"
+#include "AE_EffectUI.h"
 #include "AE_Macros.h"
 #include "Param_Utils.h"
 #include "AE_EffectCBSuites.h"
 #include "AE_EffectSuites.h"
+#include "AE_PluginData.h"
 #include "AEFX_SuiteHelper.h"
+#include "AEFX_SuiteHandlerTemplate.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -87,14 +91,24 @@ inline PF_Err ParamsSetup(PF_InData* in_data, PF_OutData* out_data, const Effect
         // Custom-UI (ECW) parameter: a no-data control drawn by the effect's event handler.
         AEFX_CLR_STRUCT(def);
         def.param_type = PF_Param_NO_DATA;
-        PF_STRNNCPY(def.name, "", sizeof(def.name));
-        def.flags    = PF_ParamFlag_SUPERVISE | PF_ParamFlag_CANNOT_TIME_VARY;
-        def.ui_flags = PF_PUI_CONTROL | PF_PUI_DONT_ERASE_CONTROL;
-        def.ui_width = 300;
-        def.ui_height = 82;
+        PF_STRNNCPY(def.name, "MAJEED", sizeof(def.name));
+        def.flags    = 0;
+        def.ui_flags = PF_PUI_CONTROL;
+        def.ui_width = 140;
+        def.ui_height = 88;
         def.uu.id = 1;
         ERR(PF_ADD_PARAM(in_data, -1, &def));
         offset = 1;
+
+        if (!err && in_data && in_data->inter.register_ui) {
+            PF_CustomUIInfo ci;
+            AEFX_CLR_STRUCT(ci);
+            ci.events = PF_CustomEFlag_EFFECT;
+            ci.comp_ui_alignment = PF_UIAlignment_NONE;
+            ci.layer_ui_alignment = PF_UIAlignment_NONE;
+            ci.preview_ui_alignment = PF_UIAlignment_NONE;
+            ERR((*(in_data->inter.register_ui))(in_data->effect_ref, &ci));
+        }
     }
 
     for (int i = 0; i < d.nspecs && !err; ++i) {
@@ -103,7 +117,7 @@ inline PF_Err ParamsSetup(PF_InData* in_data, PF_OutData* out_data, const Effect
         switch (s.t) {
         case T_FLOAT: {
             AEFX_CLR_STRUCT(def);
-            PF_ADD_FLOAT_SLIDERX(s.name, s.mn, s.mx, s.smn, s.smx, s.def, s.prec, 0, 0, 0, id);
+            PF_ADD_FLOAT_SLIDERX(s.name, s.mn, s.mx, s.smn, s.smx, s.def, s.prec, 0, 0, id);
             break;
         }
         case T_CHECK: {
@@ -123,8 +137,7 @@ inline PF_Err ParamsSetup(PF_InData* in_data, PF_OutData* out_data, const Effect
         }
         case T_ANGLE: {
             AEFX_CLR_STRUCT(def);
-            // PF_Param_ANGLE values are 16.16 fixed-point degrees
-            PF_ADD_ANGLE(s.name, (A_long)(s.def * 65536.0), id);
+            PF_ADD_ANGLE(s.name, s.def, id);
             break;
         }
         case T_GROUP: {
@@ -133,6 +146,7 @@ inline PF_Err ParamsSetup(PF_InData* in_data, PF_OutData* out_data, const Effect
             break;
         }
         case T_GROUP_END: {
+            AEFX_CLR_STRUCT(def);
             PF_END_TOPIC(id);
             break;
         }
@@ -151,11 +165,13 @@ inline PF_Err GlobalSetup(PF_InData*, PF_OutData* out_data, const EffectDef& d) 
 }
 
 inline PF_Err PreRender(PF_InData* in_data, PF_OutData*, PF_PreRenderExtra* extra) {
+    if (!in_data || !extra || !extra->input || !extra->output || !extra->cb) {
+        return PF_Err_BAD_CALLBACK_PARAM;
+    }
     PF_Err err = PF_Err_NONE;
     PF_RenderRequest req = extra->input->output_request;
     PF_CheckoutResult res;
     AEFX_CLR_STRUCT(res);
-    req.rect.left = 0; req.rect.top = 0; req.rect.right = in_data->width; req.rect.bottom = in_data->height;  // whole layer
     req.preserve_rgb_of_zero_alpha = TRUE;
     ERR(extra->cb->checkout_layer(in_data->effect_ref, 0, 0, &req, in_data->current_time, in_data->time_step, in_data->time_scale, &res));
     if (!err) {
@@ -246,7 +262,7 @@ inline PF_Err RenderWorlds(PF_InData* in_data, PF_OutData* out_data, const Effec
 
     // ---- pixel format ----------------------------------------------------
     PF_PixelFormat fmt = PF_PixelFormat_INVALID;
-    AEFX_SuiteScoper<PF_WorldSuite2> ws(in_data, kPF_WorldSuite, kPF_WorldSuiteVersion2, out_data);
+    AEFX_SuiteScoper<PF_WorldSuite2> ws(in_data, kPFWorldSuite, kPFWorldSuiteVersion2, out_data);
     ERR(ws->PF_GetPixelFormat(inW, &fmt));
     if (err) return err;
     if (fmt != PF_PixelFormat_ARGB32 && fmt != PF_PixelFormat_ARGB64 && fmt != PF_PixelFormat_ARGB128)
@@ -277,14 +293,17 @@ inline PF_Err RenderWorlds(PF_InData* in_data, PF_OutData* out_data, const Effec
 }
 
 inline PF_Err SmartRender(PF_InData* in_data, PF_OutData* out_data, PF_SmartRenderExtra* extra, const EffectDef& d) {
+    if (!in_data || !out_data || !extra || !extra->cb) return PF_Err_BAD_CALLBACK_PARAM;
     PF_Err err = PF_Err_NONE, err2 = PF_Err_NONE;
     PF_EffectWorld *inW = NULL, *outW = NULL;
     bool layerCheckedOut = false;
 
     ERR(extra->cb->checkout_layer_pixels(in_data->effect_ref, 0, &inW));
-    if (!err) layerCheckedOut = true;
+    if (!err && inW) layerCheckedOut = true;
     ERR(extra->cb->checkout_output(in_data->effect_ref, &outW));
-    if (!err && (!inW || !outW)) err = PF_Err_INTERNAL_STRUCT_DAMAGED;
+    if (!err && (!inW || !outW || !inW->data || !outW->data || inW->width <= 0 || inW->height <= 0)) {
+        err = PF_Err_INTERNAL_STRUCT_DAMAGED;
+    }
 
     if (!err) err = RenderWorlds(in_data, out_data, d, inW, outW);
 
@@ -293,16 +312,24 @@ inline PF_Err SmartRender(PF_InData* in_data, PF_OutData* out_data, PF_SmartRend
 }
 
 // ------------------------------------------------------------ main dispatch --
-inline PF_Err Dispatch(PF_Cmd cmd, PF_InData* in_data, PF_OutData* out_data, void* extra, const EffectDef& d) {
+inline PF_Err Dispatch(PF_Cmd cmd, PF_InData* in_data, PF_OutData* out_data, PF_ParamDef* params[], PF_LayerDef* output, void* extra, const EffectDef& d) {
     PF_Err err = PF_Err_NONE;
     switch (cmd) {
     case PF_Cmd_ABOUT:
-        PF_SPRINTF(out_data->return_msg, "%s\rMAJEED native engine.\r%s", d.name, d.about); break;
+        if (in_data && in_data->utils && in_data->utils->ansi.sprintf && out_data) {
+            PF_SPRINTF(out_data->return_msg, "%s\rMAJEED native engine.\r%s", d.name, d.about);
+        }
+        break;
     case PF_Cmd_GLOBAL_SETUP:     err = GlobalSetup(in_data, out_data, d); break;
     case PF_Cmd_PARAMS_SETUP:     err = ParamsSetup(in_data, out_data, d); break;
-    case PF_Cmd_EVENT:            if (d.event) err = d.event(in_data, out_data, (PF_EventExtra*)extra); break;
+    case PF_Cmd_EVENT:            if (d.event && extra) err = d.event(in_data, out_data, (PF_EventExtra*)extra); break;
     case PF_Cmd_SMART_PRE_RENDER: err = PreRender(in_data, out_data, (PF_PreRenderExtra*)extra); break;
     case PF_Cmd_SMART_RENDER:     err = SmartRender(in_data, out_data, (PF_SmartRenderExtra*)extra, d); break;
+    case PF_Cmd_RENDER:
+        if (params && params[0] && output && params[0]->u.ld.data && output->data) {
+            err = RenderWorlds(in_data, out_data, d, &params[0]->u.ld, output);
+        }
+        break;
     default: break;
     }
     return err;
@@ -312,6 +339,5 @@ inline PF_Err Dispatch(PF_Cmd cmd, PF_InData* in_data, PF_OutData* out_data, voi
 
 #define MJ_EXPORT_EFFECT(FUNC, DEF) \
     extern "C" DllExport PF_Err FUNC(PF_Cmd cmd, PF_InData* in_data, PF_OutData* out_data, PF_ParamDef* params[], PF_LayerDef* output, void* extra) { \
-        (void)params; (void)output; \
-        try { return mj::Dispatch(cmd, in_data, out_data, extra, DEF); } catch (PF_Err e) { return e; } catch (...) { return PF_Err_INTERNAL_STRUCT_DAMAGED; } \
+        try { return mj::Dispatch(cmd, in_data, out_data, params, output, extra, DEF); } catch (PF_Err e) { return e; } catch (...) { return PF_Err_INTERNAL_STRUCT_DAMAGED; } \
     }

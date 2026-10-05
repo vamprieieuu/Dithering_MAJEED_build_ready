@@ -53,7 +53,7 @@ using namespace majeed;
 
 MJ_DEFINE_PARAMS(GRAIN_LIST, GRAIN)
 
-static void grain_render(const Image& src, const Image& dst, const mj::Vals& v, const FrameCtx& c) {
+static void grain_render(const Image& src, Image& dst, const mj::Vals& v, const FrameCtx& c) {
     GrainParams p;
     p.type = v.pop(GR_TYPE);
     static const double presets[] = { 0, 4, 8, 12, 16, 24, 32, 48, 64 };

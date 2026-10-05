@@ -12,7 +12,11 @@ add_library(
     Util/Smart_Utils.cpp
 )
 
-target_compile_options(AESDK PRIVATE /W0)
+if(MSVC)
+    target_compile_options(AESDK PRIVATE /W0)
+else()
+    target_compile_options(AESDK PRIVATE -w)
+endif()
 set(AESDK_ROOT ${PROJECT_SOURCE_DIR} CACHE INTERNAL "After Effects SDK Root")
 set(AESDK_INCLUDE
     ${PROJECT_SOURCE_DIR}/Headers
@@ -22,8 +26,6 @@ set(AESDK_INCLUDE
     CACHE INTERNAL "After Effects SDK Header folders"
 )
 target_include_directories(AESDK PUBLIC ${AESDK_INCLUDE})
+target_compile_definitions(AESDK PUBLIC MSWindows _WINDOWS WIN32 _CRT_SECURE_NO_WARNINGS)
 set_target_properties(AESDK PROPERTIES POSITION_INDEPENDENT_CODE ON)
 get_filename_component(AFX_REZ Resources/PiPLtool.exe ABSOLUTE CACHE)
-if(MSVC)
-    add_definitions(-D_CRT_SECURE_NO_WARNINGS -D_WINDOWS)
-endif()

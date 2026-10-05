@@ -43,7 +43,7 @@ using namespace majeed;
 
 MJ_DEFINE_PARAMS(VHS_LIST, VHS)
 
-static void vhs_render(const Image& src, const Image& dst, const mj::Vals& v, const FrameCtx& c) {
+static void vhs_render(const Image& src, Image& dst, const mj::Vals& v, const FrameCtx& c) {
     VHSParams p;
     p.trackAmount = v[VH_TRACK]; p.trackSize = v[VH_TRACKSIZE]; p.trackSpeed = v[VH_TRACKSPD]; p.headSwitch = v[VH_HEAD]; p.headHeight = v[VH_HEADH];
     p.jitterAmount = v[VH_JIT]; p.jitterRate = v[VH_JITRATE];
