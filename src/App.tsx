@@ -81,6 +81,73 @@ export default function App() {
     }
   };
 
+  // Image Export with full original resolution preservation
+  const handleExport = (format: 'png' | 'jpeg') => {
+    if (!canvasRef.current) return;
+    const canvas = canvasRef.current;
+
+    let targetCanvas: HTMLCanvasElement = canvas;
+    if (selectedSubject === 'custom' && customImage) {
+      const origW = customImage.naturalWidth || customImage.width;
+      const origH = customImage.naturalHeight || customImage.height;
+      const offscreen = document.createElement('canvas');
+      offscreen.width = origW;
+      offscreen.height = origH;
+      const offCtx = offscreen.getContext('2d');
+      if (offCtx) {
+        offCtx.drawImage(customImage, 0, 0, origW, origH);
+        if (linesEnabled && linesAmount > 0 && linesOpacity > 0) {
+          const imgData = offCtx.getImageData(0, 0, origW, origH);
+          const scale = origW / 500;
+          renderLines(
+            offCtx,
+            imgData,
+            {
+              enabled: linesEnabled,
+              amount: linesAmount,
+              length: lineLength * scale,
+              lengthRand,
+              width: lineThickness * scale,
+              widthRand: thicknessRand,
+              angle: lineAngle,
+              angleRand,
+              color: lineColor,
+              colorMode,
+              opacity: linesOpacity,
+              objectMode,
+              edgeThreshold,
+              edgeSensitivity,
+              edgeDirection,
+              edgeOffset: edgeOffset * scale,
+              handMade,
+              curve,
+              duplicate,
+              duplicateCount: dupCount,
+              duplicateOffset: dupOffset * scale,
+              duplicateLength: dupLength,
+              duplicateWidth: dupThickness * scale,
+              duplicateOpacity: dupOpacity,
+              autoAnim,
+              animSpeed,
+              motionRand,
+              seed,
+            },
+            animTime
+          );
+        }
+        targetCanvas = offscreen;
+      }
+    }
+
+    const mime = format === 'png' ? 'image/png' : 'image/jpeg';
+    const quality = format === 'jpeg' ? 0.95 : undefined;
+    const url = targetCanvas.toDataURL(mime, quality);
+    const a = document.createElement('a');
+    a.download = `YMDithers_Export_${Date.now()}.${format}`;
+    a.href = url;
+    a.click();
+  };
+
   // Render Simulator Canvas
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -249,11 +316,12 @@ export default function App() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-semibold text-zinc-100 text-sm tracking-wide">YMDithers.aex</h1>
+              <span className="text-base select-none" title="Republic of Iraq">🇮🇶</span>
               <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-mono font-medium">
-                v1.0.0 Verified
+                v1.6.8 Verified
               </span>
             </div>
-            <p className="text-xs text-zinc-400">Native Adobe After Effects 23.2.1 SmartFX Plugin (Windows x64)</p>
+            <p className="text-xs text-zinc-400">Native Adobe After Effects 23.2.1 SmartFX Plugin (Windows x64) • Crafted with Pride 🇮🇶</p>
           </div>
         </div>
 
@@ -265,7 +333,7 @@ export default function App() {
           >
             <Download className="w-4 h-4" />
             <span>Download YMDithers.aex</span>
-            <span className="text-[10px] opacity-75 font-mono">(306 KB)</span>
+            <span className="text-[10px] opacity-75 font-mono">(231 KB)</span>
           </a>
         </div>
       </header>
@@ -609,6 +677,22 @@ export default function App() {
                   {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
                   <span>{isPlaying ? 'Pause' : 'Play'}</span>
                 </button>
+                <button
+                  onClick={() => handleExport('png')}
+                  className="px-2 py-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded transition flex items-center gap-1"
+                  title="Export lossless PNG at full source resolution"
+                >
+                  <Download className="w-3 h-3 text-amber-400" />
+                  <span>PNG</span>
+                </button>
+                <button
+                  onClick={() => handleExport('jpeg')}
+                  className="px-2 py-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded transition flex items-center gap-1"
+                  title="Export JPEG (95% quality) at full source resolution"
+                >
+                  <Download className="w-3 h-3 text-amber-400" />
+                  <span>JPEG</span>
+                </button>
               </div>
             </div>
 
@@ -642,10 +726,10 @@ export default function App() {
                 <h3 className="text-xs font-semibold">After Effects 23.2.1 Binary</h3>
               </div>
               <ul className="text-xs text-zinc-400 space-y-1.5">
-                <li>• File: <code className="text-zinc-300 font-mono">dist/YMDithers.aex</code> (306 KB)</li>
+                <li>• File: <code className="text-zinc-300 font-mono">dist/YMDithers.aex</code> (225 KB)</li>
                 <li>• Type: PE32+ x64 Windows GUI DLL</li>
                 <li>• Entry: <code className="text-zinc-300 font-mono">EffectMain</code>, <code className="text-zinc-300 font-mono">PluginDataEntryFunction2</code></li>
-                <li>• PiPL: ID 16000, RVA 0x510f8 (Verified)</li>
+                <li>• PiPL: ID 16000 Big-Endian Validated (Verified)</li>
                 <li>• Color: SmartFX 8-bit, 16-bit, 32-bit Float</li>
               </ul>
             </div>
