@@ -103,13 +103,13 @@ jobs:
 
           # Write build summary to GitHub Actions Run Summary
           if ($env:GITHUB_STEP_SUMMARY) {
-            "### YMDithers v7 Build Success" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
-            "- **Artifact Name:** `YMDithers_v7`" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
-            "- **Plugin File:** `YMDithers_v7.aex`" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
-            "- **File Size:** $($finalAex.Length) bytes" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
-            "- **SHA-256:** ``$hash``" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
-            "- **Subsystem:** Windows GUI 6.0 (MSVC x64)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
-            "- **Exports:** `EffectMain`, `PluginDataEntryFunction2`" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '### YMDithers v7 Build Success'
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '- Artifact Name: YMDithers_v7'
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '- Plugin File: YMDithers_v7.aex'
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value ("- File Size: {0} bytes" -f $finalAex.Length)
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value ("- SHA-256: {0}" -f $hash)
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '- Subsystem: Windows GUI 6.0 (MSVC x64)'
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '- Exports: EffectMain, PluginDataEntryFunction2'
           }
 
           # Run strict Python PE & Resource verification
