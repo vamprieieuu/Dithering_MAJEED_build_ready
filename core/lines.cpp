@@ -112,6 +112,8 @@ void extract_object_contours(const Image& src, float threshold, float sensitivit
         std::vector<float> gx_buf(totalPixels, 0.f);
         std::vector<float> gy_buf(totalPixels, 0.f);
         std::vector<float> mag_buf(totalPixels, 0.f);
+        std::vector<float> sub_dx(totalPixels, 0.f);
+        std::vector<float> sub_dy(totalPixels, 0.f);
         const float gain = std::max(0.3f, (float)(sensitivity / 35.0f));
         float maxMag = 0.f;
 
@@ -162,8 +164,8 @@ void extract_object_contours(const Image& src, float threshold, float sensitivit
         // Non-Maximum Suppression + Subpixel Ridge Refinement + Hysteresis Tracing
         auto run_nms_and_trace = [&](float tHigh, float tLow, int minNodes, float minLen) -> bool {
             std::vector<float> nms_buf(totalPixels, 0.f);
-            std::vector<float> sub_dx(totalPixels, 0.f);
-            std::vector<float> sub_dy(totalPixels, 0.f);
+            std::fill(sub_dx.begin(), sub_dx.end(), 0.f);
+            std::fill(sub_dy.begin(), sub_dy.end(), 0.f);
 
             for (int y = 2; y < H - 2; ++y) {
                 for (int x = 2; x < W - 2; ++x) {

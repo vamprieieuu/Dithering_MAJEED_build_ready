@@ -3,7 +3,7 @@
 
 /** AEFX_ChannelDepthTpl.h
 
-	© 2005 Adobe Systems Incorporated
+	ï¿½ 2005 Adobe Systems Incorporated
 
 **/
 

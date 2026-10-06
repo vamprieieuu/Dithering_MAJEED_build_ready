@@ -1,5 +1,6 @@
 #include "AE_Effect.h"
 #include "AE_EffectSuites.h"
+#include "AE_Macros.h"
 #include "Param_Utils.h"
 #include "entry.h"
 #include "majeed_core.h"
@@ -110,12 +111,14 @@ static PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef 
         std::memset(&def, 0, sizeof(def));
         def.param_type = PF_Param_GROUP_START;
         std::strncpy(def.name, name, sizeof(def.name) - 1);
+        def.uu.id = id;
         PF_ADD_PARAM(in_data, id, &def);
     };
 
     auto addGroupEnd = [&](int id) -> void {
         std::memset(&def, 0, sizeof(def));
         def.param_type = PF_Param_GROUP_END;
+        def.uu.id = id;
         PF_ADD_PARAM(in_data, id, &def);
     };
 
@@ -124,8 +127,9 @@ static PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef 
         def.param_type = PF_Param_CHECKBOX;
         std::strncpy(def.name, name, sizeof(def.name) - 1);
         def.u.bd.value = dflt;
-        def.u.bd.dflt  = dflt;
-        def.u.bd.u_name = name;
+        def.u.bd.dephault = dflt;
+        def.u.bd.u.nameptr = name;
+        def.uu.id = id;
         PF_ADD_PARAM(in_data, id, &def);
     };
 
@@ -138,8 +142,9 @@ static PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef 
         def.u.fs_d.slider_min = sMin;
         def.u.fs_d.slider_max = sMax;
         def.u.fs_d.value = dflt;
-        def.u.fs_d.dflt = dflt;
+        def.u.fs_d.dephault = (PF_FpShort)dflt;
         def.u.fs_d.precision = prec;
+        def.uu.id = id;
         PF_ADD_PARAM(in_data, id, &def);
     };
 
@@ -149,8 +154,9 @@ static PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef 
         std::strncpy(def.name, name, sizeof(def.name) - 1);
         def.u.pd.num_choices = numChoices;
         def.u.pd.value = dflt;
-        def.u.pd.dflt = dflt;
-        def.u.pd.choices = choices;
+        def.u.pd.dephault = dflt;
+        def.u.pd.u.namesptr = choices;
+        def.uu.id = id;
         PF_ADD_PARAM(in_data, id, &def);
     };
 
@@ -159,7 +165,8 @@ static PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef 
         def.param_type = PF_Param_ANGLE;
         std::strncpy(def.name, name, sizeof(def.name) - 1);
         def.u.ad.value = (PF_Fixed)(dfltDeg * 65536.0);
-        def.u.ad.dflt  = (PF_Fixed)(dfltDeg * 65536.0);
+        def.u.ad.dephault = (PF_Fixed)(dfltDeg * 65536.0);
+        def.uu.id = id;
         PF_ADD_PARAM(in_data, id, &def);
     };
 
@@ -171,7 +178,8 @@ static PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef 
         def.u.cd.value.green = g;
         def.u.cd.value.blue  = b;
         def.u.cd.value.alpha = 255;
-        def.u.cd.dflt = def.u.cd.value;
+        def.u.cd.dephault    = def.u.cd.value;
+        def.uu.id = id;
         PF_ADD_PARAM(in_data, id, &def);
     };
 
@@ -258,29 +266,34 @@ static PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef 
 // ---------------------------------------------------------------------------
 static PF_Err SmartPreRender(PF_InData *in_data, PF_OutData *out_data, PF_PreRenderExtra *extra) {
     PF_Err err = PF_Err_NONE;
-    if (!extra) return PF_Err_BAD_CALLBACK_PARAM;
+    if (!extra || !extra->input || !extra->output || !extra->cb) return PF_Err_BAD_CALLBACK_PARAM;
 
-    PF_RenderRequestP req = extra->input.pre_render_node;
-    if (extra->callbacks.checkout_layer) {
-        extra->callbacks.checkout_layer(in_data, 0, 0, req, in_data->current_time, nullptr);
+    PF_RenderRequest req = extra->input->output_request;
+    PF_CheckoutResult result;
+    if (extra->cb->checkout_layer) {
+        err = extra->cb->checkout_layer(in_data->effect_ref, 0, 0, &req, in_data->current_time, in_data->time_step, in_data->time_scale, &result);
     }
+    extra->output->result_rect = result.result_rect;
+    extra->output->max_result_rect = result.max_result_rect;
     return err;
 }
 
 static PF_Err SmartRender(PF_InData *in_data, PF_OutData *out_data, PF_SmartRenderExtra *extra) {
-    if (!in_data || !out_data || !extra) return PF_Err_BAD_CALLBACK_PARAM;
+    if (!in_data || !out_data || !extra || !extra->cb || !extra->input) return PF_Err_BAD_CALLBACK_PARAM;
 
     PF_EffectWorld *input_world = nullptr;
     PF_EffectWorld *output_world = nullptr;
 
-    if (extra->callbacks.checkout_layer_pixels) {
-        extra->callbacks.checkout_layer_pixels(in_data, 0, &input_world);
+    if (extra->cb->checkout_layer_pixels) {
+        extra->cb->checkout_layer_pixels(in_data->effect_ref, 0, &input_world);
     }
-    output_world = extra->output.output_worldP;
+    if (extra->cb->checkout_output) {
+        extra->cb->checkout_output(in_data->effect_ref, &output_world);
+    }
 
     if (!input_world || !output_world || !input_world->data || !output_world->data) {
-        if (extra->callbacks.checkin_layer_pixels) {
-            extra->callbacks.checkin_layer_pixels(in_data, 0);
+        if (extra->cb->checkin_layer_pixels) {
+            extra->cb->checkin_layer_pixels(in_data->effect_ref, 0);
         }
         return PF_Err_NONE;
     }
@@ -288,26 +301,133 @@ static PF_Err SmartRender(PF_InData *in_data, PF_OutData *out_data, PF_SmartRend
     const int W = input_world->width;
     const int H = input_world->height;
     if (W <= 0 || H <= 0) {
-        if (extra->callbacks.checkin_layer_pixels) {
-            extra->callbacks.checkin_layer_pixels(in_data, 0);
+        if (extra->cb->checkin_layer_pixels) {
+            extra->cb->checkin_layer_pixels(in_data->effect_ref, 0);
         }
         return PF_Err_NONE;
     }
 
     try {
-        // Read parameters from in_data
-        majeed::DitherParams dp;
-        majeed::LinesParams lp;
+        // Query parameters safely using checkout helpers
+        auto getSlider = [&](int idx, double defVal) -> double {
+            PF_ParamDef p;
+            AEFX_CLR_STRUCT(p);
+            if (PF_CHECKOUT_PARAM(in_data, idx, in_data->current_time, in_data->time_step, in_data->time_scale, &p) == PF_Err_NONE) {
+                double v = p.u.fs_d.value;
+                PF_CHECKIN_PARAM(in_data, &p);
+                return v;
+            }
+            return defVal;
+        };
 
-        // Query parameters safely using checkout or default fallbacks
-        // (Default values are safe)
+        auto getCheckbox = [&](int idx, bool defVal) -> bool {
+            PF_ParamDef p;
+            AEFX_CLR_STRUCT(p);
+            if (PF_CHECKOUT_PARAM(in_data, idx, in_data->current_time, in_data->time_step, in_data->time_scale, &p) == PF_Err_NONE) {
+                bool v = (p.u.bd.value != 0);
+                PF_CHECKIN_PARAM(in_data, &p);
+                return v;
+            }
+            return defVal;
+        };
+
+        auto getPopup = [&](int idx, int defVal) -> int {
+            PF_ParamDef p;
+            AEFX_CLR_STRUCT(p);
+            if (PF_CHECKOUT_PARAM(in_data, idx, in_data->current_time, in_data->time_step, in_data->time_scale, &p) == PF_Err_NONE) {
+                int v = p.u.pd.value;
+                PF_CHECKIN_PARAM(in_data, &p);
+                return v;
+            }
+            return defVal;
+        };
+
+        auto getAngle = [&](int idx, double defVal) -> double {
+            PF_ParamDef p;
+            AEFX_CLR_STRUCT(p);
+            if (PF_CHECKOUT_PARAM(in_data, idx, in_data->current_time, in_data->time_step, in_data->time_scale, &p) == PF_Err_NONE) {
+                double v = (double)p.u.ad.value / 65536.0;
+                PF_CHECKIN_PARAM(in_data, &p);
+                return v;
+            }
+            return defVal;
+        };
+
+        auto getColor = [&](int idx) -> majeed::Color {
+            PF_ParamDef p;
+            AEFX_CLR_STRUCT(p);
+            majeed::Color c = { 1.f, 1.f, 1.f };
+            if (PF_CHECKOUT_PARAM(in_data, idx, in_data->current_time, in_data->time_step, in_data->time_scale, &p) == PF_Err_NONE) {
+                c.r = (float)p.u.cd.value.red / 255.f;
+                c.g = (float)p.u.cd.value.green / 255.f;
+                c.b = (float)p.u.cd.value.blue / 255.f;
+                PF_CHECKIN_PARAM(in_data, &p);
+            }
+            return c;
+        };
+
+        majeed::DitherParams dp;
+        dp.algorithm     = getPopup(ID_DITHER_ALGORITHM, 17);
+        dp.colorMode     = getPopup(ID_DITHER_COLOR_MODE, 2);
+        dp.amount        = getSlider(ID_DITHER_AMOUNT, 100.0);
+        dp.whiteAmount   = getSlider(ID_DITHER_WHITE_AMOUNT, 100.0);
+        dp.blackAmount   = getSlider(ID_DITHER_BLACK_AMOUNT, 100.0);
+        dp.levels        = getSlider(ID_DITHER_LEVELS, 2.0);
+        dp.scale         = getSlider(ID_DITHER_SCALE, 1.0);
+        dp.threshold     = getSlider(ID_DITHER_THRESHOLD, 50.0);
+        dp.strength      = getSlider(ID_DITHER_STRENGTH, 100.0);
+        dp.patternScale  = getSlider(ID_DITHER_PATTERN_SCALE, 100.0);
+        dp.patternAngle  = getAngle(ID_DITHER_PATTERN_ANGLE, 0.0);
+        dp.contrast      = getSlider(ID_DITHER_CONTRAST, 100.0);
+        dp.brightness    = getSlider(ID_DITHER_BRIGHTNESS, 0.0);
+        dp.randomness    = getSlider(ID_DITHER_RANDOMNESS, 0.0);
+        dp.serpentine    = getCheckbox(ID_DITHER_SERPENTINE, true);
+        dp.linearGamma   = getCheckbox(ID_DITHER_LINEAR_GAMMA, false);
+        dp.pixelate      = getCheckbox(ID_DITHER_PIXELATE, false);
+        dp.animateNoise  = getCheckbox(ID_DITHER_ANIMATE_NOISE, false);
+        dp.seed          = getSlider(ID_DITHER_SEED, 0.0);
+
+        majeed::LinesParams lp;
+        lp.enabled          = getCheckbox(ID_LINES_ENABLE, false); // DEFAULT OFF
+        lp.amount           = getSlider(ID_LINES_AMOUNT, 600.0);
+        lp.length           = getSlider(ID_LINES_LENGTH, 50.0);
+        lp.lengthRand       = getSlider(ID_LINES_LENGTH_RAND, 40.0);
+        lp.width            = getSlider(ID_LINES_THICKNESS, 1.0);
+        lp.widthRand        = getSlider(ID_LINES_THICKNESS_RAND, 30.0);
+        lp.angle            = getAngle(ID_LINES_DIRECTION_ANGLE, 0.0);
+        lp.angleRand        = getSlider(ID_LINES_DIRECTION_RAND, 180.0);
+        lp.color            = getColor(ID_LINES_COLOR);
+        lp.colorMode        = getPopup(ID_LINES_COLOR_MODE, 1) - 1;
+        lp.opacity          = getSlider(ID_LINES_OPACITY, 90.0);
+
+        lp.objectMode       = getCheckbox(ID_OBJECT_ENABLE, false); // DEFAULT OFF
+        lp.edgeThreshold    = getSlider(ID_OBJECT_THRESHOLD, 25.0);
+        lp.edgeSensitivity  = getSlider(ID_OBJECT_SENSITIVITY, 75.0);
+        lp.edgeDirection    = getPopup(ID_OBJECT_DIRECTION, 1) - 1;
+        lp.edgeOffset       = getSlider(ID_OBJECT_OFFSET, 0.0);
+
+        lp.handMade         = getCheckbox(ID_HANDMADE_ENABLE, true);
+        lp.curve            = getSlider(ID_HANDMADE_CURVE, 30.0);
+
+        lp.duplicate        = getCheckbox(ID_DUPLICATE_ENABLE, false);
+        lp.duplicateCount   = (int)getSlider(ID_DUPLICATE_COUNT, 1.0);
+        lp.duplicateOffset  = getSlider(ID_DUPLICATE_OFFSET, 2.5);
+        lp.duplicateLength  = getSlider(ID_DUPLICATE_LENGTH, 90.0);
+        lp.duplicateWidth   = getSlider(ID_DUPLICATE_WIDTH, 0.8);
+        lp.duplicateOpacity = getSlider(ID_DUPLICATE_OPACITY, 75.0);
+
+        lp.autoAnim         = getCheckbox(ID_ANIM_AUTO, true);
+        lp.motionSpeed      = getSlider(ID_ANIM_SPEED, 100.0);
+        lp.motionRand       = getSlider(ID_ANIM_RANDOMNESS, 50.0);
+        lp.seed             = (int)getSlider(ID_ANIM_SEED, 1.0);
+
         // Convert input world to normalized RGBA float buffer
         std::vector<float> srcBuf((size_t)W * H * 4);
         std::vector<float> dstBuf((size_t)W * H * 4);
 
-        PF_PixelFormat format = extra->input.pixel_format;
+        short bitdepth = extra->input ? extra->input->bitdepth : 8;
 
-        if (format == PF_PixelFormat_ARGB128) {
+        if (bitdepth == 32) {
             // 32-bit float RGBA
             for (int y = 0; y < H; ++y) {
                 const PF_PixelFloat* srcRow = (const PF_PixelFloat*)((const char*)input_world->data + y * input_world->rowbytes);
@@ -319,7 +439,7 @@ static PF_Err SmartRender(PF_InData *in_data, PF_OutData *out_data, PF_SmartRend
                     dstRow[x * 4 + 3] = srcRow[x].alpha;
                 }
             }
-        } else if (format == PF_PixelFormat_ARGB64) {
+        } else if (bitdepth == 16) {
             // 16-bit ARGB
             const float inv16 = 1.0f / 32768.0f;
             for (int y = 0; y < H; ++y) {
@@ -363,7 +483,7 @@ static PF_Err SmartRender(PF_InData *in_data, PF_OutData *out_data, PF_SmartRend
         }
 
         // Write back to output world
-        if (format == PF_PixelFormat_ARGB128) {
+        if (bitdepth == 32) {
             for (int y = 0; y < H; ++y) {
                 PF_PixelFloat* dstRow = (PF_PixelFloat*)((char*)output_world->data + y * output_world->rowbytes);
                 const float* sRow = dstBuf.data() + (size_t)y * W * 4;
@@ -374,7 +494,7 @@ static PF_Err SmartRender(PF_InData *in_data, PF_OutData *out_data, PF_SmartRend
                     dstRow[x].alpha = sRow[x * 4 + 3];
                 }
             }
-        } else if (format == PF_PixelFormat_ARGB64) {
+        } else if (bitdepth == 16) {
             for (int y = 0; y < H; ++y) {
                 PF_Pixel16* dstRow = (PF_Pixel16*)((char*)output_world->data + y * output_world->rowbytes);
                 const float* sRow = dstBuf.data() + (size_t)y * W * 4;
@@ -406,8 +526,8 @@ static PF_Err SmartRender(PF_InData *in_data, PF_OutData *out_data, PF_SmartRend
         }
     }
 
-    if (extra->callbacks.checkin_layer_pixels) {
-        extra->callbacks.checkin_layer_pixels(in_data, 0);
+    if (extra->cb->checkin_layer_pixels) {
+        extra->cb->checkin_layer_pixels(in_data->effect_ref, 0);
     }
     return PF_Err_NONE;
 }
@@ -445,7 +565,7 @@ extern "C" DllExport PF_Err EffectMain(
                                            PF_OutFlag_PIX_INDEPENDENT;
                     out_data->out_flags2 = PF_OutFlag2_FLOAT_COLOR_AWARE |
                                            PF_OutFlag2_SUPPORTS_SMART_RENDER |
-                                           PF_OutFlag2_SUPPORTS_THREADED_RENDERING;
+                                           PF_OutFlag2_I_AM_THREADSAFE;
                 }
                 break;
 

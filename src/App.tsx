@@ -333,7 +333,7 @@ export default function App() {
           >
             <Download className="w-4 h-4" />
             <span>Download YMDithers.aex</span>
-            <span className="text-[10px] opacity-75 font-mono">(225 KB)</span>
+            <span className="text-[10px] opacity-75 font-mono">(231 KB)</span>
           </a>
         </div>
       </header>
