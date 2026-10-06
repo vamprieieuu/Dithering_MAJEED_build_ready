@@ -22,6 +22,19 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pefile
+
+      - name: Clean previous build artifacts
+        shell: pwsh
+        run: |
+          if (Test-Path "build") { Remove-Item -Recurse -Force "build" }
+          if (Test-Path "dist/YMDithers.aex") { Remove-Item -Force "dist/YMDithers.aex" }
+          if (Test-Path "public/dist/YMDithers.aex") { Remove-Item -Force "public/dist/YMDithers.aex" }
+          Write-Host "Pristine build directory ready."
+
       - name: Configure CMake
         run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
 
@@ -34,15 +47,26 @@ jobs:
           $aex = Get-Item -Path "dist/YMDithers.aex" -ErrorAction SilentlyContinue
           if (-not $aex) {
             $aex = Get-ChildItem -Path build -Filter 'YMDithers.aex' -Recurse -File | Select-Object -First 1
+            if ($aex) {
+              New-Item -ItemType Directory -Force -Path "dist"
+              Copy-Item $aex.FullName -Destination "dist/YMDithers.aex" -Force
+              $aex = Get-Item "dist/YMDithers.aex"
+            }
           }
           if (-not $aex) {
-            Write-Host "YMDithers.aex was not found. Built files:"
+            Write-Host "YMDithers.aex was not found. Built files in build/:"
             Get-ChildItem -Path build -Recurse -File | Where-Object { $_.Extension -in '.aex','.dll','.lib','.obj','.rc' } | Select-Object FullName,Length
-            Write-Error "YMDithers.aex was not produced."
+            Write-Error "YMDithers.aex was not produced by this workflow run."
             exit 1
           }
-          Write-Host "Built AEX file: $($aex.FullName)"
-          Get-Item $aex.FullName | Format-List FullName,Length,LastWriteTime
+          Write-Host "=========================================="
+          Write-Host "VERIFIED FRESH AEX BUILD ARTIFACT:"
+          Write-Host "Path: $($aex.FullName)"
+          Write-Host "Size: $($aex.Length) bytes"
+          $hash = (Get-FileHash -Path $aex.FullName -Algorithm SHA256).Hash
+          Write-Host "SHA-256: $hash"
+          Write-Host "Last Modified: $($aex.LastWriteTimeUtc) UTC"
+          Write-Host "=========================================="
           python ae/post_build_rsrc_fix.py $aex.FullName
           dumpbin /headers /exports $aex.FullName
 
