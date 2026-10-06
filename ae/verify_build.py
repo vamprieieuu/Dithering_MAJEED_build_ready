@@ -71,9 +71,21 @@ def verify_aex(path):
         return False
     print("[OK] PE Format: PE32+ (64-bit)")
 
-    subsystem = struct.unpack('<H', data[opt_offset+68:opt_offset+70])[0]
-    subsys_maj = struct.unpack('<H', data[opt_offset+44:opt_offset+46])[0]
-    subsys_min = struct.unpack('<H', data[opt_offset+46:opt_offset+48])[0]
+    # Read Subsystem and Versions from PE Optional Header
+    try:
+        import pefile
+        pe = pefile.PE(data=data)
+        subsystem = pe.OPTIONAL_HEADER.Subsystem
+        subsys_maj = pe.OPTIONAL_HEADER.MajorSubsystemVersion
+        subsys_min = pe.OPTIONAL_HEADER.MinorSubsystemVersion
+    except Exception:
+        # Standard PE32+ Optional Header offsets:
+        # Offset 48: MajorSubsystemVersion (2 bytes)
+        # Offset 50: MinorSubsystemVersion (2 bytes)
+        # Offset 68: Subsystem (2 bytes)
+        subsystem = struct.unpack('<H', data[opt_offset+68:opt_offset+70])[0]
+        subsys_maj = struct.unpack('<H', data[opt_offset+48:opt_offset+50])[0]
+        subsys_min = struct.unpack('<H', data[opt_offset+50:opt_offset+52])[0]
 
     if subsystem != 2:
         print(f"[FAIL] Subsystem must be WINDOWS_GUI (2), found: {subsystem}")

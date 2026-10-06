@@ -85,6 +85,7 @@ if(MSVC)
     target_link_options(YMDithers PRIVATE
         /SUBSYSTEM:WINDOWS,6.00
         /OSVERSION:6.00
+        /VERSION:6.00
         /DEF:${YMDITHERS_DEF}
     )
 else()
