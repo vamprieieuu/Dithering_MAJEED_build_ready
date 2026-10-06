@@ -1,8 +1,8 @@
 #include <windows.h>
 
 1 VERSIONINFO
-FILEVERSION 1,6,8,0
-PRODUCTVERSION 1,6,8,0
+FILEVERSION 7,0,0,0
+PRODUCTVERSION 7,0,0,0
 FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
 FILEFLAGS 0x1L
@@ -19,13 +19,13 @@ BEGIN
         BEGIN
             VALUE "Comments", "Native Dithering & Halftone FX for Adobe After Effects\0"
             VALUE "CompanyName", "YMDithers\0"
-            VALUE "FileDescription", "YMDithers Plugin for Adobe After Effects\0"
-            VALUE "FileVersion", "1.6.8.0\0"
-            VALUE "InternalName", "YMDithers\0"
+            VALUE "FileDescription", "YMDithers v7 Plugin for Adobe After Effects\0"
+            VALUE "FileVersion", "7.0.0.0\0"
+            VALUE "InternalName", "YMDithers_v7\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 YMDithers\0"
-            VALUE "OriginalFilename", "YMDithers.aex\0"
-            VALUE "ProductName", "YMDithers\0"
-            VALUE "ProductVersion", "1.6.8.0\0"
+            VALUE "OriginalFilename", "YMDithers_v7.aex\0"
+            VALUE "ProductName", "YMDithers v7\0"
+            VALUE "ProductVersion", "7.0.0.0\0"
         END
     END
     BLOCK "VarFileInfo"
@@ -33,3 +33,7 @@ BEGIN
         VALUE "Translation", 0x409, 1200
     END
 END
+
+// Embed Windows Application Isolation Manifest for DLL (RT_MANIFEST = 24, ISOLATIONAWARE_MANIFEST_RESOURCE_ID = 2)
+2 24 "YMDithers.manifest"
+

@@ -382,10 +382,10 @@ export default function App() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="font-semibold text-zinc-100 text-sm tracking-wide">YMDithers.aex</h1>
+              <h1 className="font-semibold text-zinc-100 text-sm tracking-wide">YMDithers v7</h1>
               <span className="text-base select-none" title="Republic of Iraq">🇮🇶</span>
               <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-mono font-medium">
-                v1.6.8 Verified Build
+                v7 Verified Release (MSVC x64)
               </span>
             </div>
             <p className="text-xs text-zinc-400">Native Adobe After Effects 23.2.1 SmartFX Plugin (Windows x64) • Crafted with Pride 🇮🇶</p>
@@ -394,13 +394,13 @@ export default function App() {
 
         <div className="flex items-center gap-3">
           <a
-            href="/dist/YMDithers.aex"
-            download="YMDithers.aex"
+            href="/dist/YMDithers_v7.aex"
+            download="YMDithers_v7.aex"
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-zinc-950 font-semibold text-xs transition shadow-lg shadow-amber-500/20"
           >
             <Download className="w-4 h-4" />
-            <span>Download YMDithers.aex</span>
-            <span className="text-[10px] opacity-75 font-mono">(237 KB)</span>
+            <span>Download YMDithers_v7.aex</span>
+            <span className="text-[10px] opacity-75 font-mono">(v7 x64)</span>
           </a>
         </div>
       </header>
@@ -1006,11 +1006,12 @@ export default function App() {
                 <h3 className="text-xs font-semibold">Native Adobe AE Plugin Verified</h3>
               </div>
               <ul className="text-xs text-zinc-400 space-y-1.5">
-                <li>• Binary: <code className="text-zinc-300 font-mono">dist/YMDithers.aex</code> (237 KB)</li>
-                <li>• Architecture: x64 Windows GUI DLL</li>
+                <li>• Binary: <code className="text-zinc-300 font-mono">dist/YMDithers_v7.aex</code></li>
+                <li>• Architecture: x64 Windows GUI DLL (Subsystem 6.0)</li>
                 <li>• Entry points: <code className="text-zinc-300 font-mono">EffectMain</code>, <code className="text-zinc-300 font-mono">PluginDataEntryFunction2</code></li>
                 <li>• PiPL: Resource ID 16000 Big-Endian Validated</li>
-                <li>• C++ Build: Clean compile (0 errors, 0 warnings)</li>
+                <li>• Toolchain: Visual Studio 2022 MSVC x64 Native</li>
+                <li>• Manifest: Embedded RT_MANIFEST (ID 2) Isolation</li>
               </ul>
             </div>
 

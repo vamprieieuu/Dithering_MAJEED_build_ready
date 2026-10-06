@@ -35,6 +35,7 @@ set(PIPL_BIN             "${CMAKE_CURRENT_BINARY_DIR}/Majeed_PiPL.bin")
 set(PIPL_RC              "${CMAKE_CURRENT_BINARY_DIR}/Majeed_PiPL.rc")
 set(PIPL_PY              "${MAJEED_AE_DIR}/pipl_gen.py")
 set(YMDITHERS_VERSION_RC "${MAJEED_AE_DIR}/YMDithers_Version.rc")
+set(YMDITHERS_DEF        "${MAJEED_AE_DIR}/YMDithers.def")
 
 if(NOT EXISTS "${PIPL_R}")
     message(FATAL_ERROR "PiPL source not found: ${PIPL_R}")
@@ -55,6 +56,7 @@ file(GLOB MAJEED_CORE_SOURCES CONFIGURE_DEPENDS "${MAJEED_CORE_DIR}/*.cpp")
 add_library(YMDithers SHARED
     "${PIPL_RC}"
     "${YMDITHERS_VERSION_RC}"
+    "${YMDITHERS_DEF}"
     ${MAJEED_AE_SOURCES}
     ${MAJEED_CORE_SOURCES}
 )
@@ -68,10 +70,24 @@ target_include_directories(YMDithers PRIVATE
 
 target_link_libraries(YMDithers PRIVATE AESDK)
 
-target_compile_definitions(YMDithers PRIVATE MSWindows _WINDOWS WIN32 _CRT_SECURE_NO_WARNINGS)
+# AE SDK defines: AE_OS_WIN is vital for entry.h to define DllExport as __declspec(dllexport)
+target_compile_definitions(YMDithers PRIVATE
+    MSWindows
+    _WINDOWS
+    WIN32
+    _WIN32
+    _WIN64
+    AE_OS_WIN
+    _CRT_SECURE_NO_WARNINGS
+)
+
 if(MSVC)
-    target_compile_options(YMDithers PRIVATE /W3 /EHsc)
-    target_link_options(YMDithers PRIVATE /SUBSYSTEM:WINDOWS,6.00)
+    target_compile_options(YMDithers PRIVATE /W3 /EHsc /MD /O2 /fp:fast)
+    target_link_options(YMDithers PRIVATE
+        /SUBSYSTEM:WINDOWS,6.00
+        /OSVERSION:6.00
+        /DEF:${YMDITHERS_DEF}
+    )
 else()
     target_compile_options(YMDithers PRIVATE -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -Wno-missing-field-initializers -Wno-unknown-pragmas -O3)
     target_link_options(YMDithers PRIVATE
@@ -87,7 +103,7 @@ endif()
 
 set_target_properties(YMDithers PROPERTIES
     PREFIX ""
-    OUTPUT_NAME "YMDithers"
+    OUTPUT_NAME "YMDithers_v7"
     SUFFIX ".aex"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/bin/Debug"
@@ -98,22 +114,12 @@ set_target_properties(YMDithers PROPERTIES
 )
 
 add_custom_command(TARGET YMDithers POST_BUILD
-    COMMAND "${Python3_EXECUTABLE}" "${MAJEED_AE_DIR}/post_build_rsrc_fix.py" "$<TARGET_FILE:YMDithers>"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/public"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/public/dist"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/dist"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:YMDithers>"
-        "${CMAKE_BINARY_DIR}/YMDithers.aex"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<TARGET_FILE:YMDithers>"
-        "${CMAKE_CURRENT_SOURCE_DIR}/public/YMDithers.aex"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<TARGET_FILE:YMDithers>"
-        "${CMAKE_CURRENT_SOURCE_DIR}/public/dist/YMDithers.aex"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<TARGET_FILE:YMDithers>"
-        "${CMAKE_CURRENT_SOURCE_DIR}/dist/YMDithers.aex"
+        "${CMAKE_BINARY_DIR}/YMDithers_v7.aex"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:YMDithers>"
         "${CMAKE_CURRENT_SOURCE_DIR}/public/YMDithers_v7.aex"
@@ -126,11 +132,12 @@ add_custom_command(TARGET YMDithers POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:YMDithers>"
         "${CMAKE_CURRENT_SOURCE_DIR}/YMDithers_v7.aex"
-    COMMENT "Packaging YMDithers.aex and ensuring read-only .rsrc characteristics and GUI subsystem"
+    COMMENT "Packaging YMDithers_v7.aex without post-build PE binary patching"
 )
 
-# Alias target so `cmake --build build --target MAJEED` also works if invoked by scripts
+# Alias targets so `cmake --build build --target MAJEED` or `--target YMDithers_v7` work
 add_custom_target(MAJEED DEPENDS YMDithers)
+add_custom_target(YMDithers_v7 DEPENDS YMDithers)
 
 set(PLUGIN_FOLDER
     "C:/Program Files/Adobe/Adobe After Effects 2023/Support Files/Plug-ins/"

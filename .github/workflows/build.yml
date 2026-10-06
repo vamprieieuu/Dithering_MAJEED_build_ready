@@ -1,4 +1,4 @@
-name: Build YMDithers.aex
+name: Build YMDithers v7 (MSVC x64)
 
 on:
   push:
@@ -31,48 +31,72 @@ jobs:
         shell: pwsh
         run: |
           if (Test-Path "build") { Remove-Item -Recurse -Force "build" }
-          if (Test-Path "dist/YMDithers.aex") { Remove-Item -Force "dist/YMDithers.aex" }
-          if (Test-Path "public/dist/YMDithers.aex") { Remove-Item -Force "public/dist/YMDithers.aex" }
-          Write-Host "Pristine build directory ready."
+          if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
+          if (Test-Path "public/dist") { Remove-Item -Recurse -Force "public/dist" }
+          New-Item -ItemType Directory -Force -Path "dist" | Out-Null
+          New-Item -ItemType Directory -Force -Path "public/dist" | Out-Null
+          Write-Host "Pristine clean build environment initialized."
 
-      - name: Configure CMake
+      - name: Configure CMake (Visual Studio 2022 x64 MSVC)
         run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
 
-      - name: Build YMDithers target
+      - name: Build YMDithers v7 Target (Release MSVC)
         run: cmake --build build --config Release --target YMDithers --parallel
 
-      - name: Verify YMDithers.aex
+      - name: Locate and Verify YMDithers_v7.aex
         shell: pwsh
         run: |
-          $aex = Get-Item -Path "dist/YMDithers.aex" -ErrorAction SilentlyContinue
-          if (-not $aex) {
-            $aex = Get-ChildItem -Path build -Filter 'YMDithers.aex' -Recurse -File | Select-Object -First 1
-            if ($aex) {
-              New-Item -ItemType Directory -Force -Path "dist"
-              Copy-Item $aex.FullName -Destination "dist/YMDithers.aex" -Force
-              $aex = Get-Item "dist/YMDithers.aex"
+          $candidates = @(
+            "dist/YMDithers_v7.aex",
+            "build/bin/Release/YMDithers_v7.aex",
+            "build/bin/YMDithers_v7.aex",
+            "build/Release/YMDithers_v7.aex",
+            "build/YMDithers_v7.aex"
+          )
+          $aexPath = $null
+          foreach ($cand in $candidates) {
+            if (Test-Path $cand) {
+              $aexPath = (Get-Item $cand).FullName
+              break
             }
           }
-          if (-not $aex) {
-            Write-Host "YMDithers.aex was not found. Built files in build/:"
-            Get-ChildItem -Path build -Recurse -File | Where-Object { $_.Extension -in '.aex','.dll','.lib','.obj','.rc' } | Select-Object FullName,Length
-            Write-Error "YMDithers.aex was not produced by this workflow run."
+          if (-not $aexPath) {
+            $found = Get-ChildItem -Path build -Filter '*.aex' -Recurse -File | Select-Object -First 1
+            if ($found) { $aexPath = $found.FullName }
+          }
+          if (-not $aexPath) {
+            Write-Error "YMDithers_v7.aex was not produced by the build."
             exit 1
           }
-          Write-Host "=========================================="
-          Write-Host "VERIFIED FRESH AEX BUILD ARTIFACT:"
-          Write-Host "Path: $($aex.FullName)"
-          Write-Host "Size: $($aex.Length) bytes"
-          $hash = (Get-FileHash -Path $aex.FullName -Algorithm SHA256).Hash
-          Write-Host "SHA-256: $hash"
-          Write-Host "Last Modified: $($aex.LastWriteTimeUtc) UTC"
-          Write-Host "=========================================="
-          python ae/post_build_rsrc_fix.py $aex.FullName
-          dumpbin /headers /exports $aex.FullName
 
-      - name: Upload YMDithers.aex
+          Copy-Item $aexPath -Destination "dist/YMDithers_v7.aex" -Force
+          Copy-Item $aexPath -Destination "public/dist/YMDithers_v7.aex" -Force
+          Copy-Item $aexPath -Destination "public/YMDithers_v7.aex" -Force
+          Copy-Item $aexPath -Destination "YMDithers_v7.aex" -Force
+
+          $finalAex = Get-Item "dist/YMDithers_v7.aex"
+          Write-Host "=========================================="
+          Write-Host "BUILT AEX ARTIFACT FOR VERIFICATION:"
+          Write-Host "Path: $($finalAex.FullName)"
+          Write-Host "Size: $($finalAex.Length) bytes"
+          $hash = (Get-FileHash -Path $finalAex.FullName -Algorithm SHA256).Hash
+          Write-Host "SHA-256: $hash"
+          Write-Host "=========================================="
+
+          # Run strict Python PE & Resource verification
+          python ae/verify_build.py $finalAex.FullName
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Verification failed for built YMDithers_v7.aex"
+            exit 1
+          }
+
+          # Dump MSVC PE Headers and Exports for audit trail
+          dumpbin /headers /exports $finalAex.FullName
+
+      - name: Upload YMDithers_v7.aex Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: YMDithers.aex
-          path: dist/YMDithers.aex
+          name: YMDithers_v7.aex
+          path: dist/YMDithers_v7.aex
           if-no-files-found: error
+

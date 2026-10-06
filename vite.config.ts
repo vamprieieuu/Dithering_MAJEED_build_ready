@@ -10,16 +10,12 @@ function serveAexPlugin(): Plugin {
     const isV7 = url === '/dist/YMDithers_v7.aex' || url === '/YMDithers_v7.aex';
     const isLegacy = url === '/dist/YMDithers.aex' || url === '/YMDithers.aex';
     if (isV7 || isLegacy) {
-      const filename = isV7 ? 'YMDithers_v7.aex' : 'YMDithers.aex';
+      const filename = 'YMDithers_v7.aex';
       const candidates = [
         path.resolve(__dirname, `dist/${filename}`),
         path.resolve(__dirname, `public/dist/${filename}`),
         path.resolve(__dirname, `public/${filename}`),
         path.resolve(__dirname, filename),
-        path.resolve(__dirname, 'dist/YMDithers.aex'),
-        path.resolve(__dirname, 'public/dist/YMDithers.aex'),
-        path.resolve(__dirname, 'public/YMDithers.aex'),
-        path.resolve(__dirname, 'YMDithers.aex'),
       ];
       for (const aexPath of candidates) {
         if (fs.existsSync(aexPath)) {

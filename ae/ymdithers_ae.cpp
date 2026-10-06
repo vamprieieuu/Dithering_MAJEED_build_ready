@@ -1,3 +1,4 @@
+#include "AEConfig.h"
 #include "AE_Effect.h"
 #include "AE_EffectSuites.h"
 #include "AE_Macros.h"
@@ -559,7 +560,7 @@ extern "C" DllExport PF_Err EffectMain(
 
             case PF_Cmd_GLOBAL_SETUP:
                 if (out_data) {
-                    out_data->my_version = 0x00070000; // 7.0.0
+                    out_data->my_version = PF_VERSION(MAJOR_VERSION, MINOR_VERSION, BUG_VERSION, STAGE_VERSION, BUILD_VERSION);
                     out_data->out_flags  = PF_OutFlag_DEEP_COLOR_AWARE |
                                            PF_OutFlag_WIDE_TIME_INPUT |
                                            PF_OutFlag_PIX_INDEPENDENT;
