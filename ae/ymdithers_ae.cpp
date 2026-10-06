@@ -12,11 +12,11 @@
 #include <vector>
 #include <algorithm>
 
-#define MAJOR_VERSION   7
+#define MAJOR_VERSION   1
 #define MINOR_VERSION   0
 #define BUG_VERSION     0
 #define STAGE_VERSION   PF_Stage_RELEASE
-#define BUILD_VERSION   0
+#define BUILD_VERSION   1
 
 enum {
     ID_DITHER_GROUP_START = 1,
@@ -102,42 +102,43 @@ static const char* EDGE_DIR_CHOICES =
     "Along Contours|Perpendicular|Random Angle|Custom Angle";
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // Parameters Setup
 // ---------------------------------------------------------------------------
 static PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef *params[], PF_LayerDef *output) {
     PF_Err err = PF_Err_NONE;
     PF_ParamDef def;
 
-    auto addGroupStart = [&](const char* name, int id) -> void {
-        std::memset(&def, 0, sizeof(def));
+    auto addGroupStart = [&](const char* name, int id) -> PF_Err {
+        AEFX_CLR_STRUCT(def);
         def.param_type = PF_Param_GROUP_START;
-        std::strncpy(def.name, name, sizeof(def.name) - 1);
+        PF_STRCPY(def.name, name);
         def.uu.id = id;
-        PF_ADD_PARAM(in_data, id, &def);
+        return PF_ADD_PARAM(in_data, -1, &def);
     };
 
-    auto addGroupEnd = [&](int id) -> void {
-        std::memset(&def, 0, sizeof(def));
+    auto addGroupEnd = [&](int id) -> PF_Err {
+        AEFX_CLR_STRUCT(def);
         def.param_type = PF_Param_GROUP_END;
         def.uu.id = id;
-        PF_ADD_PARAM(in_data, id, &def);
+        return PF_ADD_PARAM(in_data, -1, &def);
     };
 
-    auto addCheckbox = [&](const char* name, bool dflt, int id) -> void {
-        std::memset(&def, 0, sizeof(def));
+    auto addCheckbox = [&](const char* name, bool dflt, int id) -> PF_Err {
+        AEFX_CLR_STRUCT(def);
         def.param_type = PF_Param_CHECKBOX;
-        std::strncpy(def.name, name, sizeof(def.name) - 1);
+        PF_STRCPY(def.name, name);
         def.u.bd.value = dflt;
         def.u.bd.dephault = dflt;
         def.u.bd.u.nameptr = name;
         def.uu.id = id;
-        PF_ADD_PARAM(in_data, id, &def);
+        return PF_ADD_PARAM(in_data, -1, &def);
     };
 
-    auto addFloatSlider = [&](const char* name, double vMin, double vMax, double sMin, double sMax, double dflt, short prec, int id) -> void {
-        std::memset(&def, 0, sizeof(def));
+    auto addFloatSlider = [&](const char* name, double vMin, double vMax, double sMin, double sMax, double dflt, short prec, int id) -> PF_Err {
+        AEFX_CLR_STRUCT(def);
         def.param_type = PF_Param_FLOAT_SLIDER;
-        std::strncpy(def.name, name, sizeof(def.name) - 1);
+        PF_STRCPY(def.name, name);
         def.u.fs_d.valid_min = vMin;
         def.u.fs_d.valid_max = vMax;
         def.u.fs_d.slider_min = sMin;
@@ -146,119 +147,124 @@ static PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef 
         def.u.fs_d.dephault = (PF_FpShort)dflt;
         def.u.fs_d.precision = prec;
         def.uu.id = id;
-        PF_ADD_PARAM(in_data, id, &def);
+        return PF_ADD_PARAM(in_data, -1, &def);
     };
 
-    auto addPopup = [&](const char* name, int numChoices, int dflt, const char* choices, int id) -> void {
-        std::memset(&def, 0, sizeof(def));
+    auto addPopup = [&](const char* name, int numChoices, int dflt, const char* choices, int id) -> PF_Err {
+        AEFX_CLR_STRUCT(def);
         def.param_type = PF_Param_POPUP;
-        std::strncpy(def.name, name, sizeof(def.name) - 1);
+        PF_STRCPY(def.name, name);
         def.u.pd.num_choices = numChoices;
         def.u.pd.value = dflt;
         def.u.pd.dephault = dflt;
         def.u.pd.u.namesptr = choices;
         def.uu.id = id;
-        PF_ADD_PARAM(in_data, id, &def);
+        return PF_ADD_PARAM(in_data, -1, &def);
     };
 
-    auto addAngle = [&](const char* name, double dfltDeg, int id) -> void {
-        std::memset(&def, 0, sizeof(def));
+    auto addAngle = [&](const char* name, double dfltDeg, int id) -> PF_Err {
+        AEFX_CLR_STRUCT(def);
         def.param_type = PF_Param_ANGLE;
-        std::strncpy(def.name, name, sizeof(def.name) - 1);
+        PF_STRCPY(def.name, name);
         def.u.ad.value = (PF_Fixed)(dfltDeg * 65536.0);
         def.u.ad.dephault = (PF_Fixed)(dfltDeg * 65536.0);
         def.uu.id = id;
-        PF_ADD_PARAM(in_data, id, &def);
+        return PF_ADD_PARAM(in_data, -1, &def);
     };
 
-    auto addColor = [&](const char* name, uint8_t r, uint8_t g, uint8_t b, int id) -> void {
-        std::memset(&def, 0, sizeof(def));
+    auto addColor = [&](const char* name, uint8_t r, uint8_t g, uint8_t b, int id) -> PF_Err {
+        AEFX_CLR_STRUCT(def);
         def.param_type = PF_Param_COLOR;
-        std::strncpy(def.name, name, sizeof(def.name) - 1);
+        PF_STRCPY(def.name, name);
         def.u.cd.value.red   = r;
         def.u.cd.value.green = g;
         def.u.cd.value.blue  = b;
         def.u.cd.value.alpha = 255;
         def.u.cd.dephault    = def.u.cd.value;
         def.uu.id = id;
-        PF_ADD_PARAM(in_data, id, &def);
+        return PF_ADD_PARAM(in_data, -1, &def);
     };
 
+#define ADD_P(expr) do { err = (expr); if (err != PF_Err_NONE) return err; } while(0)
+
     // Dither Group
-    addGroupStart("Dither", ID_DITHER_GROUP_START);
-    addPopup("Algorithm", 49, 17, ALGO_CHOICES, ID_DITHER_ALGORITHM); // Bayer 4x4 default
-    addPopup("Dither Palette", 8, 2, COLOR_MODE_CHOICES, ID_DITHER_COLOR_MODE); // Monochrome default
-    addFloatSlider("Dither Amount (%)", 0.0, 100.0, 0.0, 100.0, 100.0, 1, ID_DITHER_AMOUNT);
-    addFloatSlider("Dither Strength", -20.0, 20.0, -20.0, 20.0, 0.0, 1, ID_DITHER_STRENGTH);
-    addFloatSlider("Scale Dither (px)", 1.0, 16.0, 1.0, 16.0, 1.0, 0, ID_DITHER_SCALE);
-    addFloatSlider("White Amount (%)", 0.0, 100.0, 0.0, 100.0, 100.0, 1, ID_DITHER_WHITE_AMOUNT);
-    addFloatSlider("Black Amount (%)", 0.0, 100.0, 0.0, 100.0, 100.0, 1, ID_DITHER_BLACK_AMOUNT);
-    addFloatSlider("Levels (Tones)", 2.0, 64.0, 2.0, 32.0, 2.0, 0, ID_DITHER_LEVELS);
-    addFloatSlider("Threshold (Density Bias)", 0.0, 100.0, 0.0, 100.0, 50.0, 1, ID_DITHER_THRESHOLD);
-    addFloatSlider("Pattern Scale (%)", 25.0, 400.0, 25.0, 250.0, 100.0, 1, ID_DITHER_PATTERN_SCALE);
-    addAngle("Pattern Angle", 0.0, ID_DITHER_PATTERN_ANGLE);
-    addFloatSlider("Contrast", 0.0, 300.0, 0.0, 200.0, 100.0, 1, ID_DITHER_CONTRAST);
-    addFloatSlider("Brightness", -100.0, 100.0, -100.0, 100.0, 0.0, 1, ID_DITHER_BRIGHTNESS);
-    addFloatSlider("Randomness (Jitter)", 0.0, 100.0, 0.0, 100.0, 0.0, 1, ID_DITHER_RANDOMNESS);
-    addCheckbox("Serpentine Scan", true, ID_DITHER_SERPENTINE);
-    addCheckbox("Linear Gamma Dither", false, ID_DITHER_LINEAR_GAMMA);
-    addCheckbox("Pixelate Output to Scale", false, ID_DITHER_PIXELATE);
-    addCheckbox("Animate Dither Noise", false, ID_DITHER_ANIMATE_NOISE);
-    addFloatSlider("Dither Seed", 0.0, 10000.0, 0.0, 10000.0, 0.0, 0, ID_DITHER_SEED);
-    addGroupEnd(ID_DITHER_GROUP_END);
+    ADD_P(addGroupStart("Dither", ID_DITHER_GROUP_START));
+    ADD_P(addPopup("Algorithm", 49, 17, ALGO_CHOICES, ID_DITHER_ALGORITHM)); // Bayer 4x4 default
+    ADD_P(addPopup("Dither Palette", 8, 2, COLOR_MODE_CHOICES, ID_DITHER_COLOR_MODE)); // Monochrome default
+    ADD_P(addFloatSlider("Dither Amount (%)", 0.0, 100.0, 0.0, 100.0, 100.0, 1, ID_DITHER_AMOUNT));
+    ADD_P(addFloatSlider("Dither Strength", -20.0, 20.0, -20.0, 20.0, 0.0, 1, ID_DITHER_STRENGTH));
+    ADD_P(addFloatSlider("Scale Dither (px)", 1.0, 16.0, 1.0, 16.0, 1.0, 0, ID_DITHER_SCALE));
+    ADD_P(addFloatSlider("White Amount (%)", 0.0, 100.0, 0.0, 100.0, 100.0, 1, ID_DITHER_WHITE_AMOUNT));
+    ADD_P(addFloatSlider("Black Amount (%)", 0.0, 100.0, 0.0, 100.0, 100.0, 1, ID_DITHER_BLACK_AMOUNT));
+    ADD_P(addFloatSlider("Levels (Tones)", 2.0, 64.0, 2.0, 32.0, 2.0, 0, ID_DITHER_LEVELS));
+    ADD_P(addFloatSlider("Threshold (Density Bias)", 0.0, 100.0, 0.0, 100.0, 50.0, 1, ID_DITHER_THRESHOLD));
+    ADD_P(addFloatSlider("Pattern Scale (%)", 25.0, 400.0, 25.0, 250.0, 100.0, 1, ID_DITHER_PATTERN_SCALE));
+    ADD_P(addAngle("Pattern Angle", 0.0, ID_DITHER_PATTERN_ANGLE));
+    ADD_P(addFloatSlider("Contrast", 0.0, 300.0, 0.0, 200.0, 100.0, 1, ID_DITHER_CONTRAST));
+    ADD_P(addFloatSlider("Brightness", -100.0, 100.0, -100.0, 100.0, 0.0, 1, ID_DITHER_BRIGHTNESS));
+    ADD_P(addFloatSlider("Randomness (Jitter)", 0.0, 100.0, 0.0, 100.0, 0.0, 1, ID_DITHER_RANDOMNESS));
+    ADD_P(addCheckbox("Serpentine Scan", true, ID_DITHER_SERPENTINE));
+    ADD_P(addCheckbox("Linear Gamma Dither", false, ID_DITHER_LINEAR_GAMMA));
+    ADD_P(addCheckbox("Pixelate Output to Scale", false, ID_DITHER_PIXELATE));
+    ADD_P(addCheckbox("Animate Dither Noise", false, ID_DITHER_ANIMATE_NOISE));
+    ADD_P(addFloatSlider("Dither Seed", 0.0, 10000.0, 0.0, 10000.0, 0.0, 0, ID_DITHER_SEED));
+    ADD_P(addGroupEnd(ID_DITHER_GROUP_END));
 
     // Lines Group
-    addGroupStart("Lines", ID_LINES_GROUP_START);
+    ADD_P(addGroupStart("Lines", ID_LINES_GROUP_START));
     // Requirement 6: LINES = OFF BY DEFAULT!
-    addCheckbox("Enable Lines", false, ID_LINES_ENABLE);
-    addFloatSlider("Lines Amount", 0.0, 10000.0, 0.0, 3000.0, 600.0, 0, ID_LINES_AMOUNT);
-    addFloatSlider("Line Length (px)", 2.0, 500.0, 5.0, 200.0, 50.0, 1, ID_LINES_LENGTH);
-    addFloatSlider("Length Randomness (%)", 0.0, 100.0, 0.0, 100.0, 40.0, 1, ID_LINES_LENGTH_RAND);
-    addFloatSlider("Line Thickness (px)", 0.1, 15.0, 0.2, 5.0, 1.0, 2, ID_LINES_THICKNESS);
-    addFloatSlider("Thickness Randomness (%)", 0.0, 100.0, 0.0, 100.0, 30.0, 1, ID_LINES_THICKNESS_RAND);
-    addAngle("Direction Angle", 0.0, ID_LINES_DIRECTION_ANGLE);
-    addFloatSlider("Direction Randomness (%)", 0.0, 180.0, 0.0, 180.0, 180.0, 1, ID_LINES_DIRECTION_RAND);
-    addColor("Line Color", 255, 255, 255, ID_LINES_COLOR);
-    addPopup("Color Mode", 3, 1, LINES_COLOR_CHOICES, ID_LINES_COLOR_MODE);
-    addFloatSlider("Lines Opacity (%)", 0.0, 100.0, 0.0, 100.0, 90.0, 1, ID_LINES_OPACITY);
+    ADD_P(addCheckbox("Enable Lines", false, ID_LINES_ENABLE));
+    ADD_P(addFloatSlider("Lines Amount", 0.0, 10000.0, 0.0, 3000.0, 600.0, 0, ID_LINES_AMOUNT));
+    ADD_P(addFloatSlider("Line Length (px)", 2.0, 500.0, 5.0, 200.0, 50.0, 1, ID_LINES_LENGTH));
+    ADD_P(addFloatSlider("Length Randomness (%)", 0.0, 100.0, 0.0, 100.0, 40.0, 1, ID_LINES_LENGTH_RAND));
+    ADD_P(addFloatSlider("Line Thickness (px)", 0.1, 15.0, 0.2, 5.0, 1.0, 2, ID_LINES_THICKNESS));
+    ADD_P(addFloatSlider("Thickness Randomness (%)", 0.0, 100.0, 0.0, 100.0, 30.0, 1, ID_LINES_THICKNESS_RAND));
+    ADD_P(addAngle("Direction Angle", 0.0, ID_LINES_DIRECTION_ANGLE));
+    ADD_P(addFloatSlider("Direction Randomness (%)", 0.0, 180.0, 0.0, 180.0, 180.0, 1, ID_LINES_DIRECTION_RAND));
+    ADD_P(addColor("Line Color", 255, 255, 255, ID_LINES_COLOR));
+    ADD_P(addPopup("Color Mode", 3, 1, LINES_COLOR_CHOICES, ID_LINES_COLOR_MODE));
+    ADD_P(addFloatSlider("Lines Opacity (%)", 0.0, 100.0, 0.0, 100.0, 90.0, 1, ID_LINES_OPACITY));
 
     // Object & Edges Group
-    addGroupStart("Object & Edges", ID_OBJECT_GROUP_START);
+    ADD_P(addGroupStart("Object & Edges", ID_OBJECT_GROUP_START));
     // Requirement 6: OBJECT = OFF BY DEFAULT!
-    addCheckbox("Object", false, ID_OBJECT_ENABLE);
-    addFloatSlider("Edge Threshold", 1.0, 100.0, 5.0, 80.0, 25.0, 1, ID_OBJECT_THRESHOLD);
-    addFloatSlider("Edge Sensitivity", 1.0, 100.0, 10.0, 100.0, 75.0, 1, ID_OBJECT_SENSITIVITY);
-    addPopup("Edge Direction", 4, 1, EDGE_DIR_CHOICES, ID_OBJECT_DIRECTION);
-    addFloatSlider("Edge Offset (px)", -20.0, 20.0, -10.0, 10.0, 0.0, 2, ID_OBJECT_OFFSET);
-    addGroupEnd(ID_OBJECT_GROUP_END);
+    ADD_P(addCheckbox("Object", false, ID_OBJECT_ENABLE));
+    ADD_P(addFloatSlider("Edge Threshold", 1.0, 100.0, 5.0, 80.0, 25.0, 1, ID_OBJECT_THRESHOLD));
+    ADD_P(addFloatSlider("Edge Sensitivity", 1.0, 100.0, 10.0, 100.0, 75.0, 1, ID_OBJECT_SENSITIVITY));
+    ADD_P(addPopup("Edge Direction", 4, 1, EDGE_DIR_CHOICES, ID_OBJECT_DIRECTION));
+    ADD_P(addFloatSlider("Edge Offset (px)", -20.0, 20.0, -10.0, 10.0, 0.0, 2, ID_OBJECT_OFFSET));
+    ADD_P(addGroupEnd(ID_OBJECT_GROUP_END));
 
     // Hand Made Lines Group
-    addGroupStart("Hand Made Lines", ID_HANDMADE_GROUP_START);
-    addCheckbox("Hand Made Lines", true, ID_HANDMADE_ENABLE);
-    addFloatSlider("Curve", 0.0, 100.0, 0.0, 100.0, 30.0, 1, ID_HANDMADE_CURVE);
-    addGroupEnd(ID_HANDMADE_GROUP_END);
+    ADD_P(addGroupStart("Hand Made Lines", ID_HANDMADE_GROUP_START));
+    ADD_P(addCheckbox("Hand Made Lines", true, ID_HANDMADE_ENABLE));
+    ADD_P(addFloatSlider("Curve", 0.0, 100.0, 0.0, 100.0, 30.0, 1, ID_HANDMADE_CURVE));
+    ADD_P(addGroupEnd(ID_HANDMADE_GROUP_END));
 
     // Duplicate Lines Group
-    addGroupStart("Duplicate Lines", ID_DUPLICATE_GROUP_START);
-    addCheckbox("Duplicate Lines", false, ID_DUPLICATE_ENABLE);
-    addFloatSlider("Duplicate Count", 1.0, 4.0, 1.0, 3.0, 1.0, 0, ID_DUPLICATE_COUNT);
-    addFloatSlider("Duplicate Offset (px)", 0.5, 30.0, 1.0, 15.0, 2.5, 1, ID_DUPLICATE_OFFSET);
-    addFloatSlider("Duplicate Length (%)", 10.0, 200.0, 20.0, 150.0, 90.0, 1, ID_DUPLICATE_LENGTH);
-    addFloatSlider("Duplicate Width (px)", 0.1, 10.0, 0.2, 4.0, 0.8, 2, ID_DUPLICATE_WIDTH);
-    addFloatSlider("Duplicate Opacity (%)", 0.0, 100.0, 0.0, 100.0, 75.0, 1, ID_DUPLICATE_OPACITY);
-    addGroupEnd(ID_DUPLICATE_GROUP_END);
+    ADD_P(addGroupStart("Duplicate Lines", ID_DUPLICATE_GROUP_START));
+    ADD_P(addCheckbox("Duplicate Lines", false, ID_DUPLICATE_ENABLE));
+    ADD_P(addFloatSlider("Duplicate Count", 1.0, 4.0, 1.0, 3.0, 1.0, 0, ID_DUPLICATE_COUNT));
+    ADD_P(addFloatSlider("Duplicate Offset (px)", 0.5, 30.0, 1.0, 15.0, 2.5, 1, ID_DUPLICATE_OFFSET));
+    ADD_P(addFloatSlider("Duplicate Length (%)", 10.0, 200.0, 20.0, 150.0, 90.0, 1, ID_DUPLICATE_LENGTH));
+    ADD_P(addFloatSlider("Duplicate Width (px)", 0.1, 10.0, 0.2, 4.0, 0.8, 2, ID_DUPLICATE_WIDTH));
+    ADD_P(addFloatSlider("Duplicate Opacity (%)", 0.0, 100.0, 0.0, 100.0, 75.0, 1, ID_DUPLICATE_OPACITY));
+    ADD_P(addGroupEnd(ID_DUPLICATE_GROUP_END));
 
     // Lines Animation Group
-    addGroupStart("Lines Animation", ID_ANIM_GROUP_START);
-    addCheckbox("Auto Animate", true, ID_ANIM_AUTO);
-    addFloatSlider("Animation Speed (%)", 0.0, 500.0, 0.0, 300.0, 100.0, 1, ID_ANIM_SPEED);
-    addFloatSlider("Motion Randomness (%)", 0.0, 100.0, 0.0, 100.0, 50.0, 1, ID_ANIM_RANDOMNESS);
-    addFloatSlider("Random Seed", 0.0, 100000.0, 0.0, 10000.0, 1.0, 0, ID_ANIM_SEED);
-    addGroupEnd(ID_ANIM_GROUP_END);
+    ADD_P(addGroupStart("Lines Animation", ID_ANIM_GROUP_START));
+    ADD_P(addCheckbox("Auto Animate", true, ID_ANIM_AUTO));
+    ADD_P(addFloatSlider("Animation Speed (%)", 0.0, 500.0, 0.0, 300.0, 100.0, 1, ID_ANIM_SPEED));
+    ADD_P(addFloatSlider("Motion Randomness (%)", 0.0, 100.0, 0.0, 100.0, 50.0, 1, ID_ANIM_RANDOMNESS));
+    ADD_P(addFloatSlider("Random Seed", 0.0, 100000.0, 0.0, 10000.0, 1.0, 0, ID_ANIM_SEED));
+    ADD_P(addGroupEnd(ID_ANIM_GROUP_END));
 
-    addGroupEnd(ID_LINES_GROUP_END);
+    ADD_P(addGroupEnd(ID_LINES_GROUP_END));
 
-    out_data->num_params = NUM_PARAMS;
+#undef ADD_P
+
+    // num_params MUST include the implicit main layer parameter (index 0)
+    out_data->num_params = NUM_PARAMS + 1;
     return err;
 }
 
@@ -561,12 +567,8 @@ extern "C" DllExport PF_Err EffectMain(
             case PF_Cmd_GLOBAL_SETUP:
                 if (out_data) {
                     out_data->my_version = PF_VERSION(MAJOR_VERSION, MINOR_VERSION, BUG_VERSION, STAGE_VERSION, BUILD_VERSION);
-                    out_data->out_flags  = PF_OutFlag_DEEP_COLOR_AWARE |
-                                           PF_OutFlag_WIDE_TIME_INPUT |
-                                           PF_OutFlag_PIX_INDEPENDENT;
-                    out_data->out_flags2 = PF_OutFlag2_FLOAT_COLOR_AWARE |
-                                           PF_OutFlag2_SUPPORTS_SMART_RENDER |
-                                           PF_OutFlag2_I_AM_THREADSAFE;
+                    out_data->out_flags  = 0x02008004;
+                    out_data->out_flags2 = 0x08001400;
                 }
                 break;
 

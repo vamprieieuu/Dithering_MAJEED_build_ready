@@ -55,7 +55,6 @@ file(GLOB MAJEED_CORE_SOURCES CONFIGURE_DEPENDS "${MAJEED_CORE_DIR}/*.cpp")
 
 add_library(YMDithers SHARED
     "${PIPL_RC}"
-    "${YMDITHERS_VERSION_RC}"
     ${MAJEED_AE_SOURCES}
     ${MAJEED_CORE_SOURCES}
 )
@@ -81,11 +80,13 @@ target_compile_definitions(YMDithers PRIVATE
 )
 
 if(MSVC)
-    target_compile_options(YMDithers PRIVATE /W3 /EHsc /MD /O2 /fp:fast)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    target_compile_options(YMDithers PRIVATE /W3 /EHsc /MT /O2 /fp:fast)
     target_link_options(YMDithers PRIVATE
         /SUBSYSTEM:WINDOWS,6.00
         /OSVERSION:6.00
         /VERSION:6.00
+        /MANIFEST:NO
         /DEF:${YMDITHERS_DEF}
     )
 else()

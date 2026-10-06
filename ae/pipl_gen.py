@@ -42,6 +42,7 @@ def gen(r_src, rc_out, bin_out):
         
     os.makedirs(os.path.dirname(rc_abs), exist_ok=True)
     with open(rc_abs, 'w', encoding='utf-8') as f:
+        f.write('LANGUAGE 9, 1\n')
         f.write(f'16000 PIPL "{bin_abs.replace(os.sep, "/")}"\n')
         
     print(f'Successfully generated PiPL: {len(d)} bytes at {bin_abs}')

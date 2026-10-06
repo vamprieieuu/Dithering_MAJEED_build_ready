@@ -164,6 +164,34 @@ def verify_aex(path):
         return False
     print("[OK] Clean exports: No MinGW/GCC internal symbols leaked")
 
+    # 4b. Imports Verification (Check static CRT runtime profile)
+    import_rva = struct.unpack('<I', data[opt_offset + 120 : opt_offset + 124])[0]
+    imported_dlls = []
+    if import_rva:
+        imp_off = rva_to_off(import_rva)
+        if imp_off:
+            i = 0
+            while True:
+                desc = data[imp_off + i*20 : imp_off + (i+1)*20]
+                if not desc or desc == b'\x00' * 20:
+                    break
+                _, _, _, name_rva, _ = struct.unpack('<IIIII', desc)
+                name_off = rva_to_off(name_rva)
+                if name_off:
+                    dll_name = data[name_off : data.find(b'\0', name_off)].decode('latin1', errors='ignore')
+                    imported_dlls.append(dll_name)
+                i += 1
+
+    print(f"\nImported DLLs ({len(imported_dlls)} total):")
+    for dll in imported_dlls:
+        print(f"  - {dll}")
+
+    dynamic_vc_dlls = [d for d in imported_dlls if any(k in d.upper() for k in ['MSVCP', 'VCRUNTIME', 'API-MS-WIN-CRT'])]
+    if dynamic_vc_dlls:
+        print(f"[WARN] Dynamic Visual C++ runtime DLLs imported: {dynamic_vc_dlls} (Static /MT recommended for AE standalone)")
+    else:
+        print("[OK] Runtime profile: Clean standalone imports (Static runtime /MT or system msvcrt)")
+
     # 5. Resources / PiPL Verification
     if not rsrc_section:
         print("[FAIL] No .rsrc section found in PE!")
@@ -181,12 +209,23 @@ def verify_aex(path):
         return False
     print("[OK] Resources: EffectMain entry point referenced in PiPL")
 
+    # Verify PiPL flags match GlobalSetup
+    if b'\x04\x80\x00\x02' not in rsrc_data:
+        print("[FAIL] PiPL out_flags (0x02008004) not found in PiPL resource!")
+        return False
+    print("[OK] Resources: PiPL out_flags (0x02008004) verified")
+
+    if b'\x00\x14\x00\x08' not in rsrc_data:
+        print("[FAIL] PiPL out_flags2 (0x08001400) not found in PiPL resource!")
+        return False
+    print("[OK] Resources: PiPL out_flags2 (0x08001400) verified")
+
     # Check for duplicate manifest
     manifest_count = rsrc_data.count(b'<assembly')
     if manifest_count > 1:
         print(f"[FAIL] Duplicate manifest detected in .rsrc! ({manifest_count} occurrences)")
         return False
-    print(f"[OK] Resources: Single manifest verified (occurrences: {manifest_count})")
+    print(f"[OK] Resources: Manifest verified (occurrences: {manifest_count})")
 
     print("\n==========================================")
     print("ALL AEX PE & RESOURCE CRITERIA PASSED!")
