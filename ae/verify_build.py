@@ -162,6 +162,13 @@ def verify_aex(path):
         return False
     print("✓ Resources: EffectMain entry point referenced in PiPL")
 
+    # Check for duplicate manifest
+    manifest_count = rsrc_data.count(b'<assembly')
+    if manifest_count > 1:
+        print(f"ERROR: Duplicate manifest detected in .rsrc! ({manifest_count} occurrences)")
+        return False
+    print(f"✓ Resources: Single manifest verified (occurrences: {manifest_count})")
+
     print("\n==========================================")
     print("ALL AEX PE & RESOURCE CRITERIA PASSED!")
     print("==========================================\n")
