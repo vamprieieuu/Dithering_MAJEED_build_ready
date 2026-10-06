@@ -101,6 +101,17 @@ jobs:
           Write-Host "SHA-256: $hash"
           Write-Host "=========================================="
 
+          # Write build summary to GitHub Actions Run Summary
+          if ($env:GITHUB_STEP_SUMMARY) {
+            "### YMDithers v7 Build Success" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            "- **Artifact Name:** `YMDithers_v7`" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            "- **Plugin File:** `YMDithers_v7.aex`" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            "- **File Size:** $($finalAex.Length) bytes" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            "- **SHA-256:** ``$hash``" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            "- **Subsystem:** Windows GUI 6.0 (MSVC x64)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            "- **Exports:** `EffectMain`, `PluginDataEntryFunction2`" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+
           # Run strict Python PE & Resource verification
           $env:PYTHONIOENCODING = "utf-8"
           python ae/verify_build.py $finalAex.FullName
@@ -112,10 +123,11 @@ jobs:
           # Dump MSVC PE Headers and Exports for audit trail
           dumpbin /headers /exports $finalAex.FullName
 
-      - name: Upload YMDithers_v7.aex Artifact
+      - name: Upload YMDithers_v7 Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: YMDithers_v7.aex
+          name: YMDithers_v7
           path: dist/YMDithers_v7.aex
           if-no-files-found: error
+
 
