@@ -1,6 +1,6 @@
 /***********************************************************************/
 /*                                                                     */
-/* SPConfig.h                                                          */
+/* SPMData.h                                                           */
 /*                                                                     */
 /* Copyright 1995-2006 Adobe Systems Incorporated.                     */
 /* All Rights Reserved.                                                */
@@ -17,67 +17,50 @@
 /*                                                                     */
 /***********************************************************************/
 
-/**
+#ifndef __SPMessageData__
+#define __SPMessageData__
 
-	SPConfig.h is the environment configuration file for Sweet Pea. It
-	defines MAC_ENV or WIN_ENV. These are used to control platform-specific
-	sections of code.
 
+/*******************************************************************************
+ **
+ **	Imports
+ **
  **/
 
-#ifndef __SPCnfig__
-#define __SPCnfig__
+#include "SPTypes.h"
 
-#if defined(__APPLE_CC__)
-#if !defined(MAC_ENV)
-#ifndef MAC_ENV
-#define MAC_ENV 1
-#endif
-#endif
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-/*
- *	Metrowerks MacOS 68K and PPC
- */
-#ifdef __MWERKS__
-#if !defined(__INTEL__)		/* mjf was- #if defined(__MC68K__) || defined(__POWERPC__) */
-#ifndef MAC_ENV
-#define MAC_ENV 1
-#endif
-#endif
-#endif
 
-/*
- *	Metrowerks Windows
- */
-#ifdef __MWERKS__
-#ifdef __INTEL__
-#ifndef WIN_ENV
-#define WIN_ENV 1
-#include <x86_prefix.h>
-#endif
-#endif
-#endif
+/*******************************************************************************
+ **
+ ** Types
+ **
+ **/
 
-/*
- *	Windows
- */
-#if defined(_WINDOWS) || defined(_MSC_VER) || defined(WINDOWS)		// PSMod, better compiler check
-#ifndef WIN_ENV
-#define WIN_ENV 1
-#endif
-#endif
+/** The value of \c #SPMessageData::SPCheck, if the message data associated
+	with a call to a plug-in has come from \c #SPInterfaceSuite::SendMessage(),
+	or is prepared using \c #SPInterfaceSuite::SetupMessageData(). */
+#define kSPValidSPMessageData 'SPCk'
 
-/*
- *	Make certain that one and only one of the platform constants is defined.
- */
+/** Basic suite-access information provided with every call. */
+typedef struct SPMessageData {
+	/** \c #kSPValidSPMessageData if this is a valid PICA message. */
+	int SPCheck;
+	/** This plug-in, an \c #SPPluginRef. */
+	struct SPPlugin *self;
+	/** An array of application-wide global variables. */
+	void *globals;
+	/** A pointer to the basic PICA suite, which you use to obtain all other suites. */
+	struct SPBasicSuite *basic;
 
-#if !defined(WIN_ENV) && !defined(MAC_ENV)
-	#error
-#endif
+} SPMessageData;
 
-#if defined(WIN_ENV) && defined(MAC_ENV)
-	#error
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif

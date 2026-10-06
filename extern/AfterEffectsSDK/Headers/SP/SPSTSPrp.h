@@ -1,6 +1,6 @@
 /***********************************************************************/
 /*                                                                     */
-/* SPConfig.h                                                          */
+/* SPSTSPrp.h                                                          */
 /*                                                                     */
 /* Copyright 1995-2006 Adobe Systems Incorporated.                     */
 /* All Rights Reserved.                                                */
@@ -17,67 +17,36 @@
 /*                                                                     */
 /***********************************************************************/
 
-/**
+#ifndef __SPSTSPrp__
+#define __SPSTSPrp__
 
-	SPConfig.h is the environment configuration file for Sweet Pea. It
-	defines MAC_ENV or WIN_ENV. These are used to control platform-specific
-	sections of code.
 
+/*******************************************************************************
+ **
+ **	Imports
+ **
  **/
 
-#ifndef __SPCnfig__
-#define __SPCnfig__
+#include "SPPiPL.h"
 
-#if defined(__APPLE_CC__)
-#if !defined(MAC_ENV)
-#ifndef MAC_ENV
-#define MAC_ENV 1
-#endif
-#endif
-#endif
 
-/*
- *	Metrowerks MacOS 68K and PPC
- */
-#ifdef __MWERKS__
-#if !defined(__INTEL__)		/* mjf was- #if defined(__MC68K__) || defined(__POWERPC__) */
-#ifndef MAC_ENV
-#define MAC_ENV 1
-#endif
-#endif
-#endif
+/*******************************************************************************
+ **
+ **	Constants
+ **
+ **/
 
-/*
- *	Metrowerks Windows
- */
-#ifdef __MWERKS__
-#ifdef __INTEL__
-#ifndef WIN_ENV
-#define WIN_ENV 1
-#include <x86_prefix.h>
-#endif
-#endif
-#endif
+/** Internal */
+#define PISuperTopSecretProperty		'StsP'
+/** Internal */
+#define PISuperTopSecretValue			'clEn'
 
-/*
- *	Windows
- */
-#if defined(_WINDOWS) || defined(_MSC_VER) || defined(WINDOWS)		// PSMod, better compiler check
-#ifndef WIN_ENV
-#define WIN_ENV 1
-#endif
-#endif
 
-/*
- *	Make certain that one and only one of the platform constants is defined.
- */
+/*******************************************************************************
+ **
+ **	Types
+ **
+ **/
 
-#if !defined(WIN_ENV) && !defined(MAC_ENV)
-	#error
-#endif
-
-#if defined(WIN_ENV) && defined(MAC_ENV)
-	#error
-#endif
 
 #endif

@@ -19,18 +19,16 @@
 /*                                                                 */
 /*******************************************************************/
 
-/*
-	Entry.h
-	
-	Part of the Adobe After Effects 8.0 SDK.
+#include "AE_Effect.h"
+#include "SPTypes.h"
 
-	Revision History
-		1.0				created by bbb
-		
-*/
-
-#ifdef AE_OS_WIN
-	#define DllExport   __declspec( dllexport )
-#else
-	#define DllExport
+#ifndef mmin
+	#define mmin(a,b) ((a) < (b) ? (a) : (b))
+	#define mmax(a,b) ((a) > (b) ? (a) : (b))
 #endif
+
+PF_Boolean IsEmptyRect(const PF_LRect *r);
+
+void UnionLRect(const PF_LRect *src, PF_LRect *dst);
+
+PF_Boolean IsEdgePixel(PF_LRect	*rectP, A_long x, A_long y);
