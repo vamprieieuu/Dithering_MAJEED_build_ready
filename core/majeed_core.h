@@ -81,16 +81,27 @@ struct LinesParams {
     int seed = 1;
 };
 
+enum DitherPaletteMode {
+    DPM_PRESERVE       = 1,
+    DPM_MONOCHROME     = 2,
+    DPM_STRONG_GREEN   = 3,
+    DPM_VOLCANIC_LAVA  = 4,
+    DPM_STRONG_RED     = 5,
+    DPM_GAME_BOY       = 6,
+    DPM_CYBERPUNK      = 7,
+    DPM_AMBER_CRT      = 8
+};
+
 struct DitherParams {
     int algorithm = 17;        // 1-indexed (Bayer 4x4 default)
-    int colorMode = 2;        // 1 = Preserve, 2 = Monochrome B&W
-    double amount = 100.0;     // Dot density
+    int colorMode = 2;        // 1 = Preserve, 2 = Monochrome, 3 = Strong Green, 4 = Volcanic, 5 = Strong Red, etc.
+    double amount = 100.0;     // Dither Amount: 0..100%
+    double strength = 0.0;     // Dither Strength: -20..+20 (default 0.0)
+    double scale = 1.0;        // Dither Scale: 1..16 (default 1.0)
     double whiteAmount = 100.0;
     double blackAmount = 100.0;
     double levels = 2.0;
-    double scale = 1.0;
     double threshold = 50.0;
-    double strength = 100.0;
     double patternScale = 100.0;
     double patternAngle = 0.0;
     double contrast = 100.0;

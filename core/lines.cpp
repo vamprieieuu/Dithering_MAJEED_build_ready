@@ -318,6 +318,10 @@ void extract_object_contours(const Image& src, float threshold, float sensitivit
             const float minHigh = std::max(0.003f, maxMag * 0.08f);
             run_nms_and_trace(minHigh, minHigh * 0.25f, 2, 1.5f);
         }
+        if (contours.empty() && maxMag > 1e-5f) {
+            const float ultraLow = std::max(0.0008f, maxMag * 0.02f);
+            run_nms_and_trace(ultraLow, ultraLow * 0.2f, 2, 1.0f);
+        }
     } catch (...) {
         // Safe fallback in low memory conditions
     }
@@ -387,6 +391,8 @@ void render_lines(const Image& src, const Image& dst, const LinesParams& p, cons
         const size_t maxEstSegs = (size_t)count * (p.duplicate ? (std::min(4, p.duplicateCount) + 1) : 1) * 8;
         allSegs.reserve(std::min((size_t)60000, maxEstSegs));
 
+        bool didRenderContourLines = false;
+
         // BRANCH A: OBJECT ON -> Contour Following
         if (p.objectMode) {
             const Image& edgeSrc = (p.edgeRef && p.edgeRef->px && p.edgeRef->w == W && p.edgeRef->h == H) ? *p.edgeRef : src;
@@ -403,6 +409,7 @@ void render_lines(const Image& src, const Image& dst, const LinesParams& p, cons
                 }
 
                 if (totalSystemLen > 0.1f) {
+                    didRenderContourLines = true;
                     const float baseLen = (float)std::max(4.0, p.length);
                     const float lenRnd = (float)clampf((float)(p.lengthRand / 100.0), 0.f, 1.f);
                     const float baseThick = (float)clampf((float)p.width, 0.2f, 15.f);
@@ -565,8 +572,8 @@ void render_lines(const Image& src, const Image& dst, const LinesParams& p, cons
                 }
             }
         }
-        // BRANCH B: OBJECT OFF -> Standard Procedural Strokes
-        else {
+        // BRANCH B: PROCEDURAL STROKES (Runs when Object is OFF, or as robust fallback if image has no detectable contours)
+        if (!didRenderContourLines) {
             const float baseLen = (float)std::max(4.0, p.length);
             const float lenRnd = (float)clampf((float)(p.lengthRand / 100.0), 0.f, 1.f);
             const float baseThick = (float)clampf((float)p.width, 0.2f, 15.f);

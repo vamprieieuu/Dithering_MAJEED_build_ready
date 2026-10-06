@@ -2,9 +2,68 @@
 #include <cmath>
 #include <vector>
 #include <algorithm>
+#include <cstring>
 
 namespace majeed {
 namespace {
+
+struct RGBPixel {
+    float r, g, b;
+};
+
+// 1. Monochrome B&W (2-step)
+static const RGBPixel PALETTE_MONOCHROME[2] = {
+    { 0.0f, 0.0f, 0.0f },
+    { 1.0f, 1.0f, 1.0f }
+};
+
+// 2. Strong Green (Matrix Terminal / Phosphor CRT, 4-step)
+static const RGBPixel PALETTE_STRONG_GREEN[4] = {
+    { 0.02f, 0.05f, 0.02f }, // Deep terminal obsidian
+    { 0.05f, 0.35f, 0.12f }, // Forest phosphor
+    { 0.00f, 0.88f, 0.30f }, // Vivid Matrix green
+    { 0.70f, 1.00f, 0.50f }  // Overdriven phosphor beam
+};
+
+// 3. Volcanic / Lava (Basalt, Magma, Solar Gold, 4-step)
+static const RGBPixel PALETTE_VOLCANIC_LAVA[4] = {
+    { 0.07f, 0.03f, 0.06f }, // Basalt obsidian
+    { 0.60f, 0.08f, 0.08f }, // Incandescent crimson
+    { 0.98f, 0.44f, 0.06f }, // Molten magma orange
+    { 1.00f, 0.94f, 0.52f }  // Liquid solar gold
+};
+
+// 4. Strong Red (Cyber Abyss / Virtual Boy, 4-step)
+static const RGBPixel PALETTE_STRONG_RED[4] = {
+    { 0.04f, 0.00f, 0.02f }, // Deep abyss
+    { 0.55f, 0.04f, 0.16f }, // Blood ruby
+    { 1.00f, 0.02f, 0.16f }, // Neon scarlet
+    { 1.00f, 0.86f, 0.88f }  // Hot coral highlight
+};
+
+// 5. Game Boy Classic (4-step Retro Olive)
+static const RGBPixel PALETTE_GAME_BOY[4] = {
+    { 0.06f, 0.22f, 0.06f }, // Darkest olive
+    { 0.19f, 0.38f, 0.19f }, // Deep moss
+    { 0.55f, 0.67f, 0.06f }, // Apple olive
+    { 0.61f, 0.74f, 0.06f }  // Mint glow
+};
+
+// 6. Cyberpunk Neon (4-step Midnight, Magenta, Cyan, Gold)
+static const RGBPixel PALETTE_CYBERPUNK[4] = {
+    { 0.02f, 0.04f, 0.12f }, // Midnight navy
+    { 0.75f, 0.05f, 0.50f }, // Electric magenta
+    { 0.00f, 0.92f, 0.88f }, // Neon cyan
+    { 0.98f, 0.98f, 0.60f }  // Lemon neon
+};
+
+// 7. Amber CRT (4-step Warm Phosphor Amber)
+static const RGBPixel PALETTE_AMBER_CRT[4] = {
+    { 0.10f, 0.04f, 0.01f }, // Deep shadow
+    { 0.50f, 0.22f, 0.00f }, // Warm rust
+    { 0.90f, 0.48f, 0.10f }, // Amber phosphor
+    { 1.00f, 0.86f, 0.40f }  // Blazing amber core
+};
 
 // Bayer threshold matrices (normalized to 0..1)
 static const float BAYER2[2][2] = {
@@ -41,7 +100,6 @@ inline float ign_threshold(int x, int y, int frame) {
 inline float blue_noise_threshold(int x, int y, uint32_t seed) {
     uint32_t h = hash3((uint32_t)x, (uint32_t)y, seed);
     float r = u01(h);
-    // Void-and-cluster approximation with Golden ratio
     float v = std::fmod(r + (float)x * 0.75487766f + (float)y * 0.56984029f, 1.0f);
     return v < 0.f ? v + 1.f : v;
 }
@@ -57,7 +115,6 @@ inline float screen_threshold(int algo, int x, int y, float angleDeg, float scal
     float fu = u - (float)iu, fv = v - (float)iv;
 
     switch (algo) {
-        // Halftone dots (0, 22.5, 45 deg)
         case 23: // Halftone 0 deg
         case 24: // Halftone 22.5 deg
         case 25: { // Halftone 45 deg
@@ -169,28 +226,28 @@ void get_diffusion_kernel(int algo, std::vector<ErrorKernel>& k, float& divisor)
             divisor = 4.0f;
             break;
         case 10: // Fan
-            k = { {1, 0, 7.f}, {-1, 1, 1.f}, {0, 1, 3.f}, {1, 1, 5.f} };
+            k = { {1, 0, 7.f}, {-1, 1, 1.f}, {-1, 1, 1.f}, {0, 1, 2.f}, {1, 1, 4.f}, {2, 1, 2.f} };
             divisor = 16.0f;
             break;
         case 11: // Shiau-Fan
-            k = { {1, 0, 8.f}, {-1, 1, 1.f}, {0, 1, 2.f}, {1, 1, 5.f} };
-            divisor = 16.0f;
+            k = { {1, 0, 4.f}, {-2, 1, 1.f}, {-1, 1, 1.f}, {0, 1, 2.f} };
+            divisor = 8.0f;
             break;
         case 12: // Skip Neighbours
-            k = { {2, 0, 7.f}, {-2, 1, 3.f}, {0, 1, 5.f}, {2, 1, 1.f} };
-            divisor = 16.0f;
+            k = { {2, 0, 1.f}, {0, 2, 1.f} };
+            divisor = 2.0f;
             break;
-        case 13: // Skip1 Neighbours
-            k = { {2, 0, 4.f}, {-2, 2, 2.f}, {0, 2, 6.f}, {2, 2, 4.f} };
-            divisor = 16.0f;
+        case 13: // Skip1
+            k = { {2, 0, 2.f}, {-1, 2, 1.f}, {1, 2, 1.f} };
+            divisor = 4.0f;
             break;
-        case 14: // Skip2 Neighbours
-            k = { {3, 0, 5.f}, {-1, 2, 4.f}, {1, 2, 7.f} };
-            divisor = 16.0f;
+        case 14: // Skip2
+            k = { {2, 0, 3.f}, {-2, 2, 1.f}, {0, 2, 2.f}, {2, 2, 2.f} };
+            divisor = 8.0f;
             break;
         case 15: // Xerox Grain
-            k = { {1, 0, 6.f}, {0, 1, 4.f}, {1, 1, 2.f} };
-            divisor = 12.0f;
+            k = { {1, 0, 4.f}, {-1, 1, 2.f}, {0, 1, 3.f}, {1, 1, 1.f} };
+            divisor = 10.0f;
             break;
         default:
             k = { {1, 0, 7.f}, {-1, 1, 3.f}, {0, 1, 5.f}, {1, 1, 1.f} };
@@ -199,121 +256,243 @@ void get_diffusion_kernel(int algo, std::vector<ErrorKernel>& k, float& divisor)
     }
 }
 
+// Multi-tone Palette Quantizer with Dither Strength & Threshold Tuning
+inline void quantize_palette_pixel(
+    int colorMode,
+    float luma,
+    float threshMod,
+    float strFactor,
+    float inR, float inG, float inB,
+    float& outR, float& outG, float& outB
+) {
+    if (colorMode == DPM_PRESERVE) {
+        // Preserve Original Colors (RGB channel thresholding)
+        float spread = (threshMod - 0.5f) * (0.8f + strFactor * 0.35f);
+        outR = (inR + spread >= 0.5f) ? 1.0f : 0.0f;
+        outG = (inG + spread >= 0.5f) ? 1.0f : 0.0f;
+        outB = (inB + spread >= 0.5f) ? 1.0f : 0.0f;
+        return;
+    }
+
+    if (colorMode == DPM_MONOCHROME) {
+        float isWhite = (luma >= threshMod) ? 1.0f : 0.0f;
+        outR = outG = outB = isWhite;
+        return;
+    }
+
+    const RGBPixel* pal = PALETTE_MONOCHROME;
+    int numColors = 2;
+
+    switch (colorMode) {
+        case DPM_STRONG_GREEN:
+            pal = PALETTE_STRONG_GREEN;
+            numColors = 4;
+            break;
+        case DPM_VOLCANIC_LAVA:
+            pal = PALETTE_VOLCANIC_LAVA;
+            numColors = 4;
+            break;
+        case DPM_STRONG_RED:
+            pal = PALETTE_STRONG_RED;
+            numColors = 4;
+            break;
+        case DPM_GAME_BOY:
+            pal = PALETTE_GAME_BOY;
+            numColors = 4;
+            break;
+        case DPM_CYBERPUNK:
+            pal = PALETTE_CYBERPUNK;
+            numColors = 4;
+            break;
+        case DPM_AMBER_CRT:
+            pal = PALETTE_AMBER_CRT;
+            numColors = 4;
+            break;
+        default:
+            pal = PALETTE_MONOCHROME;
+            numColors = 2;
+            break;
+    }
+
+    // Step-quantization with threshold spread
+    float spread = (threshMod - 0.5f) * (0.7f + strFactor * 0.35f);
+    float targetVal = clampf(luma + spread, 0.0f, 1.0f);
+    int pIdx = clampf((int)std::floor(targetVal * (float)numColors), 0, numColors - 1);
+    outR = pal[pIdx].r;
+    outG = pal[pIdx].g;
+    outB = pal[pIdx].b;
+}
+
 } // namespace
 
+// ---------------------------------------------------------------------------
+// Main Render Dither Pipeline - Clean, Real & Crash-Proof
+// ---------------------------------------------------------------------------
 void render_dither(const Image& src, const Image& dst, const DitherParams& p, const FrameCtx& c) {
     if (!src.px || !dst.px || src.w <= 0 || src.h <= 0) return;
     const int W = src.w, H = src.h;
 
-    // Requirement 5: Dither Amount must control actual dot density & coverage
-    // If Amount <= 0, source image is fully preserved!
-    if (p.amount <= 0.01) {
-        std::memcpy(dst.px, src.px, (size_t)W * H * 4 * sizeof(float));
-        return;
-    }
-
     try {
-        const float ditherCoverage = clampf((float)(p.amount / 100.0), 0.0f, 1.0f);
-        const float whiteDensity = clampf((float)(p.whiteAmount / 100.0), 0.0f, 1.0f);
-        const float blackDensity = clampf((float)(p.blackAmount / 100.0), 0.0f, 1.0f);
-        const float bias = clampf((float)((p.threshold - 50.0) / 100.0), -0.5f, 0.5f);
         const float contrast = clampf((float)(p.contrast / 100.0), 0.0f, 3.0f);
         const float brightness = clampf((float)(p.brightness / 100.0), -1.0f, 1.0f);
         const float jitter = clampf((float)(p.randomness / 100.0), 0.0f, 1.0f);
-        const uint32_t seedVal = hash_u32((uint32_t)p.seed * 31337u + (p.animateNoise ? (uint32_t)c.frame() * 101u : 0u));
+        const float bias = (float)((p.threshold - 50.0) / 100.0);
+        const uint32_t seedVal = hash_u32((uint32_t)p.seed * 2654435761u + 0x9e3779b9u);
+
+        // Required Dither Strength in [-20, +20]:
+        // -20 weakens/refines into delicate subtle stipple; +20 strengthens/coarsens into bold graphic dots
+        const float strengthVal = clampf((float)p.strength, -20.0f, 20.0f);
+        const float strFactor = strengthVal / 20.0f; // -1.0 .. +1.0
+
+        // Required Dither Amount in [0..100%]:
+        // Governs actual density/coverage of dithered pixels
+        const float ditherCoverage = clampf((float)(p.amount / 100.0), 0.0f, 1.0f);
+
+        // Required Scale Dither [1..16]:
+        const int ditherScale = std::max(1, std::min(16, (int)std::round(p.scale)));
 
         // Error diffusion branch (algorithms 1..15)
         if (p.algorithm >= 1 && p.algorithm <= 15) {
             std::vector<ErrorKernel> kernel;
-            float divisor = 16.0f;
+            float divisor = 1.0f;
             get_diffusion_kernel(p.algorithm, kernel, divisor);
-            const float invDiv = 1.0f / divisor;
+            const float invDiv = (divisor > 0.001f) ? (1.0f / divisor) : 1.0f;
+            const bool serpentine = p.serpentine || (p.algorithm == 2);
 
-            // Working float buffer for error diffusion
-            std::vector<float> errBuf((size_t)W * H * 4);
-            for (size_t i = 0; i < (size_t)W * H * 4; ++i) {
-                errBuf[i] = src.px[i];
+            // Downsampled diffusion grid according to ditherScale
+            const int gw = std::max(1, (W + ditherScale - 1) / ditherScale);
+            const int gh = std::max(1, (H + ditherScale - 1) / ditherScale);
+            const size_t gridPixels = (size_t)gw * gh;
+
+            std::vector<float> gridR(gridPixels, 0.f);
+            std::vector<float> gridG(gridPixels, 0.f);
+            std::vector<float> gridB(gridPixels, 0.f);
+            std::vector<float> gridLuma(gridPixels, 0.f);
+
+            for (int gy = 0; gy < gh; ++gy) {
+                int yStart = gy * ditherScale;
+                int yEnd = std::min(H, yStart + ditherScale);
+                for (int gx = 0; gx < gw; ++gx) {
+                    int xStart = gx * ditherScale;
+                    int xEnd = std::min(W, xStart + ditherScale);
+                    float rAcc = 0.f, gAcc = 0.f, bAcc = 0.f;
+                    int count = 0;
+                    for (int y = yStart; y < yEnd; ++y) {
+                        for (int x = xStart; x < xEnd; ++x) {
+                            const float* sp = src.at(x, y);
+                            rAcc += sp[0]; gAcc += sp[1]; bAcc += sp[2];
+                            count++;
+                        }
+                    }
+                    float invC = (count > 0) ? (1.f / (float)count) : 1.f;
+                    float rAvg = rAcc * invC;
+                    float gAvg = gAcc * invC;
+                    float bAvg = bAcc * invC;
+
+                    // Apply contrast & brightness
+                    rAvg = clampf((rAvg - 0.5f) * contrast + 0.5f + brightness, 0.f, 1.f);
+                    gAvg = clampf((gAvg - 0.5f) * contrast + 0.5f + brightness, 0.f, 1.f);
+                    bAvg = clampf((bAvg - 0.5f) * contrast + 0.5f + brightness, 0.f, 1.f);
+                    if (p.linearGamma) {
+                        rAvg = std::pow(rAvg, 2.2f);
+                        gAvg = std::pow(gAvg, 2.2f);
+                        bAvg = std::pow(bAvg, 2.2f);
+                    }
+
+                    size_t gIdx = (size_t)gy * gw + gx;
+                    gridR[gIdx] = rAvg;
+                    gridG[gIdx] = gAvg;
+                    gridB[gIdx] = bAvg;
+                    gridLuma[gIdx] = luma709(rAvg, gAvg, bAvg);
+                }
             }
 
-            const bool useSerp = p.serpentine && (p.algorithm == 2 || p.serpentine);
-            for (int y = 0; y < H; ++y) {
-                bool rightToLeft = useSerp && (y & 1);
-                int xStart = rightToLeft ? W - 1 : 0;
-                int xEnd = rightToLeft ? -1 : W;
-                int xStep = rightToLeft ? -1 : 1;
-
-                for (int x = xStart; x != xEnd; x += xStep) {
-                    size_t idx = ((size_t)y * W + x) * 4;
-                    float origR = src.px[idx], origG = src.px[idx + 1], origB = src.px[idx + 2], alpha = src.px[idx + 3];
-                    float r = errBuf[idx], g = errBuf[idx + 1], b = errBuf[idx + 2];
-
-                    // Contrast & brightness
-                    auto adjustL = [&](float v) {
-                        float vAdj = (v - 0.5f) * contrast + 0.5f + brightness;
-                        return clampf(vAdj, 0.f, 1.f);
-                    };
-
-                    r = adjustL(r); g = adjustL(g); b = adjustL(b);
-                    if (p.linearGamma) {
-                        r = std::pow(r, 2.2f); g = std::pow(g, 2.2f); b = std::pow(b, 2.2f);
+            // Xerox Toner Edge Boost (Algo 15)
+            if (p.algorithm == 15 && gw > 2 && gh > 2) {
+                std::vector<float> origL(gridLuma);
+                for (int gy = 1; gy < gh - 1; ++gy) {
+                    for (int gx = 1; gx < gw - 1; ++gx) {
+                        size_t gIdx = (size_t)gy * gw + gx;
+                        float cVal = origL[gIdx];
+                        float lap = 4.f * cVal - origL[(size_t)(gy - 1) * gw + gx]
+                                              - origL[(size_t)(gy + 1) * gw + gx]
+                                              - origL[(size_t)gy * gw + (gx - 1)]
+                                              - origL[(size_t)gy * gw + (gx + 1)];
+                        float toner = (u01(hash3((uint32_t)gx, (uint32_t)gy, seedVal)) - 0.5f) * 0.12f;
+                        gridLuma[gIdx] = clampf(cVal + lap * 0.55f + toner, 0.f, 1.f);
                     }
+                }
+            }
 
-                    float luma = luma709(r, g, b);
-                    float thresh = 0.5f + bias;
+            // Error buffer on grid
+            std::vector<float> errBuf(gridPixels * 3, 0.f);
+            std::vector<RGBPixel> outGrid(gridPixels);
+
+            for (int gy = 0; gy < gh; ++gy) {
+                const bool rightToLeft = serpentine && ((gy & 1) == 1);
+                for (int i = 0; i < gw; ++i) {
+                    int gx = rightToLeft ? (gw - 1 - i) : i;
+                    size_t gIdx = (size_t)gy * gw + gx;
+
+                    float inR = clampf(gridR[gIdx] + errBuf[gIdx * 3 + 0], 0.f, 1.f);
+                    float inG = clampf(gridG[gIdx] + errBuf[gIdx * 3 + 1], 0.f, 1.f);
+                    float inB = clampf(gridB[gIdx] + errBuf[gIdx * 3 + 2], 0.f, 1.f);
+                    float luma = clampf(gridLuma[gIdx] + luma709(errBuf[gIdx * 3], errBuf[gIdx * 3 + 1], errBuf[gIdx * 3 + 2]), 0.f, 1.f);
+
+                    float baseThresh = 0.5f + bias;
                     if (jitter > 0.001f) {
-                        float j = (u01(hash3((uint32_t)x, (uint32_t)y, seedVal)) - 0.5f) * jitter * 0.4f;
-                        thresh += j;
+                        float j = (u01(hash3((uint32_t)gx, (uint32_t)gy, seedVal)) - 0.5f) * jitter * 0.4f;
+                        baseThresh += j;
                     }
+                    float threshMod = 0.5f + (baseThresh - 0.5f) * (1.0f + strFactor * 0.85f);
+                    threshMod = clampf(threshMod, 0.02f, 0.98f);
 
-                    // Evaluate dithered output vs source
-                    // Requirement 5: dither density selection
-                    uint32_t ditherRnd = hash3((uint32_t)x, (uint32_t)y, seedVal ^ 0x9e3779b9u);
-                    float sampleProb = u01(ditherRnd);
+                    float qR = 0.f, qG = 0.f, qB = 0.f;
+                    quantize_palette_pixel(p.colorMode, luma, threshMod, strFactor, inR, inG, inB, qR, qG, qB);
 
-                    float quantR, quantG, quantB;
-                    if (p.colorMode == 2) { // Monochrome B&W
-                        float isWhite = (luma >= thresh) ? 1.0f : 0.0f;
-                        // Requirement 5: Black & White amount control actual density
-                        if (isWhite > 0.5f) {
-                            if (sampleProb > whiteDensity) isWhite = luma; // preserve source tone if suppressed
-                        } else {
-                            if (sampleProb > blackDensity) isWhite = luma;
-                        }
-                        quantR = quantG = quantB = isWhite;
-                    } else { // Preserve Original Colors
-                        quantR = (r >= thresh) ? 1.0f : 0.0f;
-                        quantG = (g >= thresh) ? 1.0f : 0.0f;
-                        quantB = (b >= thresh) ? 1.0f : 0.0f;
-                    }
+                    // Diffuse error (attenuated by dither coverage / strength)
+                    float errWeight = (1.0f + strFactor * 0.25f);
+                    float errR = (inR - qR) * errWeight;
+                    float errG = (inG - qG) * errWeight;
+                    float errB = (inB - qB) * errWeight;
 
-                    float errR = r - quantR;
-                    float errG = g - quantG;
-                    float errB = b - quantB;
-
-                    // Distribute error
                     for (const auto& ek : kernel) {
-                        int nx = x + (rightToLeft ? -ek.dx : ek.dx);
-                        int ny = y + ek.dy;
-                        if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
-                            size_t nIdx = ((size_t)ny * W + nx) * 4;
+                        int nx = gx + (rightToLeft ? -ek.dx : ek.dx);
+                        int ny = gy + ek.dy;
+                        if (nx >= 0 && nx < gw && ny >= 0 && ny < gh) {
+                            size_t nIdx = ((size_t)ny * gw + nx) * 3;
                             float w = ek.weight * invDiv;
-                            errBuf[nIdx]     += errR * w;
+                            errBuf[nIdx + 0] += errR * w;
                             errBuf[nIdx + 1] += errG * w;
                             errBuf[nIdx + 2] += errB * w;
                         }
                     }
 
-                    // Requirement 5: Dither Amount controls actual coverage / detail
+                    outGrid[gIdx] = { qR, qG, qB };
+                }
+            }
+
+            // Scatter back to full resolution destination
+            for (int y = 0; y < H; ++y) {
+                int gy = std::min(gh - 1, y / ditherScale);
+                for (int x = 0; x < W; ++x) {
+                    int gx = std::min(gw - 1, x / ditherScale);
+                    size_t gIdx = (size_t)gy * gw + gx;
+                    size_t idx = ((size_t)y * W + x) * 4;
+
+                    uint32_t ditherRnd = hash3((uint32_t)x, (uint32_t)y, seedVal ^ 0x9e3779b9u);
+                    float sampleProb = u01(ditherRnd);
+
                     if (sampleProb < ditherCoverage) {
-                        dst.px[idx]     = quantR;
-                        dst.px[idx + 1] = quantG;
-                        dst.px[idx + 2] = quantB;
+                        dst.px[idx + 0] = outGrid[gIdx].r;
+                        dst.px[idx + 1] = outGrid[gIdx].g;
+                        dst.px[idx + 2] = outGrid[gIdx].b;
                     } else {
-                        dst.px[idx]     = origR;
-                        dst.px[idx + 1] = origG;
-                        dst.px[idx + 2] = origB;
+                        dst.px[idx + 0] = src.px[idx + 0];
+                        dst.px[idx + 1] = src.px[idx + 1];
+                        dst.px[idx + 2] = src.px[idx + 2];
                     }
-                    dst.px[idx + 3] = alpha;
+                    dst.px[idx + 3] = src.px[idx + 3];
                 }
             }
         }
@@ -321,8 +500,12 @@ void render_dither(const Image& src, const Image& dst, const DitherParams& p, co
         else {
             parallel_rows(H, [&](int y0, int y1) {
                 for (int y = y0; y < y1; ++y) {
+                    // Scaled spatial cell
+                    int sy = y / ditherScale;
                     for (int x = 0; x < W; ++x) {
+                        int sx = x / ditherScale;
                         size_t idx = ((size_t)y * W + x) * 4;
+
                         float r = src.px[idx], g = src.px[idx + 1], b = src.px[idx + 2], a = src.px[idx + 3];
 
                         float rAdj = clampf((r - 0.5f) * contrast + 0.5f + brightness, 0.f, 1.f);
@@ -336,70 +519,64 @@ void render_dither(const Image& src, const Image& dst, const DitherParams& p, co
 
                         float luma = luma709(rAdj, gAdj, bAdj);
 
-                        // Threshold computation based on algorithm
-                        float thresh = 0.5f;
+                        // Threshold computation on scaled cell coordinates (sx, sy)
+                        float rawThresh = 0.5f;
                         switch (p.algorithm) {
                             case 16: // Bayer 2x2
-                                thresh = BAYER2[y & 1][x & 1];
+                                rawThresh = BAYER2[sy & 1][sx & 1];
                                 break;
                             case 17: // Bayer 4x4
-                                thresh = BAYER4[y & 3][x & 3];
+                                rawThresh = BAYER4[sy & 3][sx & 3];
                                 break;
                             case 18: // Bayer 8x8
-                                thresh = BAYER8[y & 7][x & 7];
+                                rawThresh = BAYER8[sy & 7][sx & 7];
                                 break;
                             case 19: { // Bayer 16x16
-                                int bx = x & 15, by = y & 15;
+                                int bx = sx & 15, by = sy & 15;
                                 int b8x = bx & 7, b8y = by & 7;
                                 float base = BAYER8[b8y][b8x];
                                 int sub = ((bx >> 3) | ((by >> 3) << 1));
-                                thresh = clampf(base + (float)sub * (1.0f / 256.0f), 0.f, 1.f);
+                                rawThresh = clampf(base + (float)sub * (1.0f / 256.0f), 0.f, 1.f);
                                 break;
                             }
                             case 20: // Blue Noise
-                                thresh = blue_noise_threshold(x, y, seedVal);
+                                rawThresh = blue_noise_threshold(sx, sy, seedVal);
                                 break;
                             case 21: // Interleaved Gradient Noise
-                                thresh = ign_threshold(x, y, p.animateNoise ? c.frame() : 0);
+                                rawThresh = ign_threshold(sx, sy, p.animateNoise ? c.frame() : 0);
                                 break;
                             case 22: // White Noise
-                                thresh = u01(hash3((uint32_t)x, (uint32_t)y, seedVal));
+                                rawThresh = u01(hash3((uint32_t)sx, (uint32_t)sy, seedVal));
                                 break;
                             default: // Continuous Halftones and Screens (23..49)
-                                thresh = screen_threshold(p.algorithm, x, y, (float)p.patternAngle, (float)p.patternScale);
+                                rawThresh = screen_threshold(p.algorithm, sx, sy, (float)p.patternAngle, (float)p.patternScale);
                                 break;
                         }
 
-                        thresh += bias;
+                        // Jitter & bias
+                        rawThresh += bias;
                         if (jitter > 0.001f) {
-                            thresh += (u01(hash3((uint32_t)x, (uint32_t)y, seedVal ^ 0x51A8Du)) - 0.5f) * jitter * 0.4f;
+                            rawThresh += (u01(hash3((uint32_t)sx, (uint32_t)sy, seedVal ^ 0x51A8Du)) - 0.5f) * jitter * 0.4f;
                         }
 
+                        // Apply Dither Strength modulation in [-20, +20]
+                        float threshMod = 0.5f + (rawThresh - 0.5f) * (1.0f + strFactor * 0.85f);
+                        threshMod = clampf(threshMod, 0.02f, 0.98f);
+
+                        // Quantize palette pixel
+                        float qR = 0.f, qG = 0.f, qB = 0.f;
+                        quantize_palette_pixel(p.colorMode, luma, threshMod, strFactor, rAdj, gAdj, bAdj, qR, qG, qB);
+
+                        // Coverage check for Dither Amount
                         uint32_t ditherRnd = hash3((uint32_t)x, (uint32_t)y, seedVal ^ 0x9e3779b9u);
                         float sampleProb = u01(ditherRnd);
 
-                        float quantR, quantG, quantB;
-                        if (p.colorMode == 2) { // Monochrome B&W
-                            float isWhite = (luma >= thresh) ? 1.0f : 0.0f;
-                            if (isWhite > 0.5f) {
-                                if (sampleProb > whiteDensity) isWhite = luma;
-                            } else {
-                                if (sampleProb > blackDensity) isWhite = luma;
-                            }
-                            quantR = quantG = quantB = isWhite;
-                        } else { // Preserve Original Colors
-                            quantR = (rAdj >= thresh) ? 1.0f : 0.0f;
-                            quantG = (gAdj >= thresh) ? 1.0f : 0.0f;
-                            quantB = (bAdj >= thresh) ? 1.0f : 0.0f;
-                        }
-
-                        // Requirement 5: Dither Amount controls actual coverage / detail
                         if (sampleProb < ditherCoverage) {
-                            dst.px[idx]     = quantR;
-                            dst.px[idx + 1] = quantG;
-                            dst.px[idx + 2] = quantB;
+                            dst.px[idx + 0] = qR;
+                            dst.px[idx + 1] = qG;
+                            dst.px[idx + 2] = qB;
                         } else {
-                            dst.px[idx]     = r;
+                            dst.px[idx + 0] = r;
                             dst.px[idx + 1] = g;
                             dst.px[idx + 2] = b;
                         }

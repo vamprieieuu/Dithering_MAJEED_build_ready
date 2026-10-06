@@ -11,9 +11,9 @@
 #include <vector>
 #include <algorithm>
 
-#define MAJOR_VERSION   1
-#define MINOR_VERSION   6
-#define BUG_VERSION     8
+#define MAJOR_VERSION   7
+#define MINOR_VERSION   0
+#define BUG_VERSION     0
 #define STAGE_VERSION   PF_Stage_RELEASE
 #define BUILD_VERSION   0
 
@@ -92,7 +92,7 @@ static const char* ALGO_CHOICES =
     "Halftone|Halftone 22.5|Halftone 45|Matrix|Square Halftone|Mosaic Halftone|Rekt Block|Row Modulation|Medium Modulation|Heavy Modulation|Column Modulation|Tilt|Bitslash|Variable Hatch|Grid|Cyber|Cross Square|Diamond|Star|Bytewav|Z-Modulation|Circuit|Vertical Stitch|Horizontal Stitch|Clock|Bi-thread|Knit";
 
 static const char* COLOR_MODE_CHOICES =
-    "Preserve Original Colors|Monochrome (B&W)";
+    "Preserve Original Colors|Monochrome (B&W)|Strong Green|Volcanic / Lava|Strong Red|Game Boy Classic|Cyberpunk Neon|Amber CRT";
 
 static const char* LINES_COLOR_CHOICES =
     "Single Color|Sampled from Image|Random Palette";
@@ -186,14 +186,14 @@ static PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef 
     // Dither Group
     addGroupStart("Dither", ID_DITHER_GROUP_START);
     addPopup("Algorithm", 49, 17, ALGO_CHOICES, ID_DITHER_ALGORITHM); // Bayer 4x4 default
-    addPopup("Color Mode", 2, 2, COLOR_MODE_CHOICES, ID_DITHER_COLOR_MODE); // Monochrome default
-    addFloatSlider("Amount (Dot Density)", 0.0, 100.0, 0.0, 100.0, 100.0, 1, ID_DITHER_AMOUNT);
+    addPopup("Dither Palette", 8, 2, COLOR_MODE_CHOICES, ID_DITHER_COLOR_MODE); // Monochrome default
+    addFloatSlider("Dither Amount (%)", 0.0, 100.0, 0.0, 100.0, 100.0, 1, ID_DITHER_AMOUNT);
+    addFloatSlider("Dither Strength", -20.0, 20.0, -20.0, 20.0, 0.0, 1, ID_DITHER_STRENGTH);
+    addFloatSlider("Scale Dither (px)", 1.0, 16.0, 1.0, 16.0, 1.0, 0, ID_DITHER_SCALE);
     addFloatSlider("White Amount (%)", 0.0, 100.0, 0.0, 100.0, 100.0, 1, ID_DITHER_WHITE_AMOUNT);
     addFloatSlider("Black Amount (%)", 0.0, 100.0, 0.0, 100.0, 100.0, 1, ID_DITHER_BLACK_AMOUNT);
     addFloatSlider("Levels (Tones)", 2.0, 64.0, 2.0, 32.0, 2.0, 0, ID_DITHER_LEVELS);
-    addFloatSlider("Scale (Pixel Size)", 1.0, 32.0, 1.0, 16.0, 1.0, 0, ID_DITHER_SCALE);
     addFloatSlider("Threshold (Density Bias)", 0.0, 100.0, 0.0, 100.0, 50.0, 1, ID_DITHER_THRESHOLD);
-    addFloatSlider("Strength (Spread)", 0.0, 200.0, 0.0, 200.0, 100.0, 1, ID_DITHER_STRENGTH);
     addFloatSlider("Pattern Scale (%)", 25.0, 400.0, 25.0, 250.0, 100.0, 1, ID_DITHER_PATTERN_SCALE);
     addAngle("Pattern Angle", 0.0, ID_DITHER_PATTERN_ANGLE);
     addFloatSlider("Contrast", 0.0, 300.0, 0.0, 200.0, 100.0, 1, ID_DITHER_CONTRAST);
@@ -375,7 +375,7 @@ static PF_Err SmartRender(PF_InData *in_data, PF_OutData *out_data, PF_SmartRend
         dp.levels        = getSlider(ID_DITHER_LEVELS, 2.0);
         dp.scale         = getSlider(ID_DITHER_SCALE, 1.0);
         dp.threshold     = getSlider(ID_DITHER_THRESHOLD, 50.0);
-        dp.strength      = getSlider(ID_DITHER_STRENGTH, 100.0);
+        dp.strength      = getSlider(ID_DITHER_STRENGTH, 0.0);
         dp.patternScale  = getSlider(ID_DITHER_PATTERN_SCALE, 100.0);
         dp.patternAngle  = getAngle(ID_DITHER_PATTERN_ANGLE, 0.0);
         dp.contrast      = getSlider(ID_DITHER_CONTRAST, 100.0);
@@ -550,7 +550,7 @@ extern "C" DllExport PF_Err EffectMain(
             case PF_Cmd_ABOUT:
                 if (out_data) {
                     std::strncpy(out_data->return_msg,
-                        "YMDithers Studio v1.6.8\n"
+                        "YMDithers Studio v7\n"
                         "Native Retro Dithering, Halftone Screens & Procedural Contour Lines.\n"
                         "Copyright (C) 2026 YMDithers.",
                         sizeof(out_data->return_msg) - 1);
@@ -559,7 +559,7 @@ extern "C" DllExport PF_Err EffectMain(
 
             case PF_Cmd_GLOBAL_SETUP:
                 if (out_data) {
-                    out_data->my_version = 0x00010608; // 1.6.8
+                    out_data->my_version = 0x00070000; // 7.0.0
                     out_data->out_flags  = PF_OutFlag_DEEP_COLOR_AWARE |
                                            PF_OutFlag_WIDE_TIME_INPUT |
                                            PF_OutFlag_PIX_INDEPENDENT;

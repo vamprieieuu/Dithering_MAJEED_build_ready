@@ -117,6 +117,18 @@ add_custom_command(TARGET YMDithers POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:YMDithers>"
         "${CMAKE_CURRENT_SOURCE_DIR}/dist/YMDithers.aex"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:YMDithers>"
+        "${CMAKE_CURRENT_SOURCE_DIR}/public/YMDithers_v7.aex"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:YMDithers>"
+        "${CMAKE_CURRENT_SOURCE_DIR}/public/dist/YMDithers_v7.aex"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:YMDithers>"
+        "${CMAKE_CURRENT_SOURCE_DIR}/dist/YMDithers_v7.aex"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:YMDithers>"
+        "${CMAKE_CURRENT_SOURCE_DIR}/YMDithers_v7.aex"
     COMMENT "Packaging YMDithers.aex and ensuring read-only .rsrc characteristics and GUI subsystem"
 )
 
