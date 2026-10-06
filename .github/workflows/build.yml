@@ -47,11 +47,11 @@ jobs:
         shell: pwsh
         run: |
           $candidates = @(
-            "dist/YMDithers_v7.aex",
             "build/bin/Release/YMDithers_v7.aex",
             "build/bin/YMDithers_v7.aex",
             "build/Release/YMDithers_v7.aex",
-            "build/YMDithers_v7.aex"
+            "build/YMDithers_v7.aex",
+            "dist/YMDithers_v7.aex"
           )
           $aexPath = $null
           foreach ($cand in $candidates) {
@@ -69,10 +69,28 @@ jobs:
             exit 1
           }
 
-          Copy-Item $aexPath -Destination "dist/YMDithers_v7.aex" -Force
-          Copy-Item $aexPath -Destination "public/dist/YMDithers_v7.aex" -Force
-          Copy-Item $aexPath -Destination "public/YMDithers_v7.aex" -Force
-          Copy-Item $aexPath -Destination "YMDithers_v7.aex" -Force
+          function Safe-Copy($src, $dst) {
+            $srcFull = (Get-Item $src).FullName
+            if (Test-Path $dst) {
+              $dstFull = (Get-Item $dst).FullName
+              if ($srcFull.ToLowerInvariant() -eq $dstFull.ToLowerInvariant()) {
+                Write-Host "Destination $dst is identical to source; skipping copy."
+                return
+              }
+            } else {
+              $parent = Split-Path -Path $dst -Parent
+              if ($parent -and -not (Test-Path $parent)) {
+                New-Item -ItemType Directory -Force -Path $parent | Out-Null
+              }
+            }
+            Copy-Item -Path $srcFull -Destination $dst -Force
+            Write-Host "Copied $srcFull -> $dst"
+          }
+
+          Safe-Copy $aexPath "dist/YMDithers_v7.aex"
+          Safe-Copy $aexPath "public/dist/YMDithers_v7.aex"
+          Safe-Copy $aexPath "public/YMDithers_v7.aex"
+          Safe-Copy $aexPath "YMDithers_v7.aex"
 
           $finalAex = Get-Item "dist/YMDithers_v7.aex"
           Write-Host "=========================================="
