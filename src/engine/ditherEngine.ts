@@ -11,6 +11,7 @@ export interface DitherParams {
   enabled: boolean;
   algorithm: number;       // 1..49 (1-indexed matching AE popup)
   colorMode: number;       // 1 = Preserve, 2 = Monochrome, 3 = Strong Green, 4 = Volcanic, 5 = Strong Red, 6 = Game Boy, 7 = Cyberpunk, 8 = Amber CRT
+  colorBlend?: boolean;    // Requirement 4: Dither Color Blend
   amount: number;          // 0..100%
   strength: number;        // -20..+20 (default 0)
   scale: number;           // 1..16 (default 1)
@@ -426,6 +427,28 @@ function quantizePalettePixel(
   return pal[pIdx];
 }
 
+function applyColorBlend(
+  qR: number, qG: number, qB: number,
+  sR: number, sG: number, sB: number,
+  colorMode: number
+): { r: number; g: number; b: number } {
+  const qLuma = luma709(qR, qG, qB);
+  if (colorMode === 2) {
+    const mod = qLuma >= 0.5 ? 1.35 : 0.45;
+    return {
+      r: clamp(sR * mod, 0, 1),
+      g: clamp(sG * mod, 0, 1),
+      b: clamp(sB * mod, 0, 1)
+    };
+  }
+  const tone = qLuma >= 0.5 ? 1.25 : 0.55;
+  return {
+    r: clamp((sR * tone) * 0.55 + qR * 0.45, 0, 1),
+    g: clamp((sG * tone) * 0.55 + qG * 0.45, 0, 1),
+    b: clamp((sB * tone) * 0.55 + qB * 0.45, 0, 1)
+  };
+}
+
 /**
  * 1:1 Rendering function mirroring core/dither.cpp render_dither()
  */
@@ -448,8 +471,15 @@ export function renderDither(
   const bias = (params.threshold - 50.0) / 100.0;
   const seedVal = hash3(params.seed, 12345, 0x9e3779b9);
 
-  const strengthVal = clamp(params.strength, -20.0, 20.0);
-  const strFactor = strengthVal / 20.0; // -1.0 .. +1.0
+  // Requirement 1: Dither Strength
+  const strengthVal = params.strength;
+  let strMult = 1.0;
+  if (strengthVal > 0) {
+    strMult = 1.0 + strengthVal * 0.15;
+  } else if (strengthVal < 0) {
+    strMult = Math.max(0.05, 1.0 + strengthVal * 0.045);
+  }
+  const strFactor = clamp(strengthVal / 20.0, -1.0, 1.0);
   const ditherCoverage = clamp(params.amount / 100.0, 0.0, 1.0);
   const ditherScale = Math.max(1, Math.min(16, Math.round(params.scale)));
 
@@ -580,9 +610,18 @@ export function renderDither(
         const sampleProb = u01(ditherRnd);
 
         if (sampleProb < ditherCoverage) {
-          outData[idx + 0] = Math.round(outGrid[gIdx].r * 255);
-          outData[idx + 1] = Math.round(outGrid[gIdx].g * 255);
-          outData[idx + 2] = Math.round(outGrid[gIdx].b * 255);
+          let finR = outGrid[gIdx].r;
+          let finG = outGrid[gIdx].g;
+          let finB = outGrid[gIdx].b;
+          if (params.colorBlend) {
+            const blended = applyColorBlend(finR, finG, finB, data[idx] / 255, data[idx + 1] / 255, data[idx + 2] / 255, params.colorMode);
+            finR = blended.r;
+            finG = blended.g;
+            finB = blended.b;
+          }
+          outData[idx + 0] = Math.round(finR * 255);
+          outData[idx + 1] = Math.round(finG * 255);
+          outData[idx + 2] = Math.round(finB * 255);
         } else {
           outData[idx + 0] = data[idx + 0];
           outData[idx + 1] = data[idx + 1];
@@ -665,9 +704,18 @@ export function renderDither(
         const sampleProb = u01(ditherRnd);
 
         if (sampleProb < ditherCoverage) {
-          outData[idx + 0] = Math.round(qCol.r * 255);
-          outData[idx + 1] = Math.round(qCol.g * 255);
-          outData[idx + 2] = Math.round(qCol.b * 255);
+          let finR = qCol.r;
+          let finG = qCol.g;
+          let finB = qCol.b;
+          if (params.colorBlend) {
+            const blended = applyColorBlend(finR, finG, finB, data[idx] / 255, data[idx + 1] / 255, data[idx + 2] / 255, params.colorMode);
+            finR = blended.r;
+            finG = blended.g;
+            finB = blended.b;
+          }
+          outData[idx + 0] = Math.round(finR * 255);
+          outData[idx + 1] = Math.round(finG * 255);
+          outData[idx + 2] = Math.round(finB * 255);
         } else {
           outData[idx + 0] = data[idx + 0];
           outData[idx + 1] = data[idx + 1];

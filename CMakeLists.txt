@@ -92,7 +92,9 @@ if(MSVC)
 else()
     target_compile_options(YMDithers PRIVATE -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -Wno-missing-field-initializers -Wno-unknown-pragmas -O3)
     target_link_options(YMDithers PRIVATE
+        "${YMDITHERS_DEF}"
         -static -static-libgcc -static-libstdc++
+        -Wl,--exclude-all-symbols
         -Wl,--kill-at -Wl,-s
         -Wl,--subsystem,windows:6.0
         -Wl,--major-os-version,6 -Wl,--minor-os-version,0

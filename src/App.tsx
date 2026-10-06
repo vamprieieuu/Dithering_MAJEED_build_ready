@@ -11,6 +11,7 @@ export default function App() {
   const [ditherEnabled, setDitherEnabled] = useState(true); // Attractive usable default
   const [ditherAlgo, setDitherAlgo] = useState(17); // Bayer 4x4 (1-indexed matching AE)
   const [ditherPalette, setDitherPalette] = useState(2); // 2: Monochrome (B&W)
+  const [ditherColorBlend, setDitherColorBlend] = useState(false); // Requirement 4: Color Blend (default OFF)
   const [ditherAmount, setDitherAmount] = useState(100); // 0..100%
   const [ditherStrength, setDitherStrength] = useState(0); // -20..+20 (default 0)
   const [ditherScale, setDitherScale] = useState(1); // 1..16 px
@@ -117,6 +118,7 @@ export default function App() {
               enabled: true,
               algorithm: ditherAlgo,
               colorMode: ditherPalette,
+              colorBlend: ditherColorBlend,
               amount: ditherAmount,
               strength: ditherStrength,
               scale: ditherScale * (origW / 500),
@@ -305,6 +307,7 @@ export default function App() {
           enabled: true,
           algorithm: ditherAlgo,
           colorMode: ditherPalette,
+          colorBlend: ditherColorBlend,
           amount: ditherAmount,
           strength: ditherStrength,
           scale: ditherScale,
@@ -363,7 +366,7 @@ export default function App() {
       );
     }
   }, [
-    ditherEnabled, ditherAlgo, ditherPalette, ditherAmount, ditherStrength, ditherScale,
+    ditherEnabled, ditherAlgo, ditherPalette, ditherColorBlend, ditherAmount, ditherStrength, ditherScale,
     ditherContrast, ditherBrightness, ditherRandomness, ditherSerpentine,
     linesEnabled, linesAmount, lineLength, lengthRand, lineThickness, thicknessRand,
     lineAngle, angleRand, lineColor, colorMode, linesOpacity,
@@ -515,6 +518,23 @@ export default function App() {
                       />
                     ))}
                   </div>
+                </div>
+
+                {/* Requirement 4: Dither Color Blend Toggle */}
+                <div className="p-3 rounded-lg bg-zinc-950/60 border border-zinc-800 flex items-center justify-between">
+                  <div>
+                    <label htmlFor="ditherColorBlend" className="text-xs font-medium text-zinc-200 block cursor-pointer">
+                      Dither Color Blend
+                    </label>
+                    <p className="text-[11px] text-zinc-400">Harmonize dither output with original image colors</p>
+                  </div>
+                  <input
+                    id="ditherColorBlend"
+                    type="checkbox"
+                    checked={ditherColorBlend}
+                    onChange={(e) => setDitherColorBlend(e.target.checked)}
+                    className="w-4 h-4 accent-amber-500 cursor-pointer rounded"
+                  />
                 </div>
 
                 {/* 1. Dither Amount */}

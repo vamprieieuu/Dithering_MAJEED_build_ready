@@ -20,15 +20,17 @@
 
 enum {
     ID_DITHER_GROUP_START = 1,
+    ID_DITHER_ENABLE,
     ID_DITHER_ALGORITHM,
     ID_DITHER_COLOR_MODE,
+    ID_DITHER_COLOR_BLEND,
     ID_DITHER_AMOUNT,
+    ID_DITHER_STRENGTH,
+    ID_DITHER_SCALE,
     ID_DITHER_WHITE_AMOUNT,
     ID_DITHER_BLACK_AMOUNT,
     ID_DITHER_LEVELS,
-    ID_DITHER_SCALE,
     ID_DITHER_THRESHOLD,
-    ID_DITHER_STRENGTH,
     ID_DITHER_PATTERN_SCALE,
     ID_DITHER_PATTERN_ANGLE,
     ID_DITHER_CONTRAST,
@@ -189,8 +191,10 @@ static PF_Err ParamsSetup(PF_InData *in_data, PF_OutData *out_data, PF_ParamDef 
 
     // Dither Group
     ADD_P(addGroupStart("Dither", ID_DITHER_GROUP_START));
+    ADD_P(addCheckbox("Dither ON/OFF", true, ID_DITHER_ENABLE));
     ADD_P(addPopup("Algorithm", 49, 17, ALGO_CHOICES, ID_DITHER_ALGORITHM)); // Bayer 4x4 default
     ADD_P(addPopup("Dither Palette", 8, 2, COLOR_MODE_CHOICES, ID_DITHER_COLOR_MODE)); // Monochrome default
+    ADD_P(addCheckbox("Dither Color Blend", false, ID_DITHER_COLOR_BLEND));
     ADD_P(addFloatSlider("Dither Amount (%)", 0.0, 100.0, 0.0, 100.0, 100.0, 1, ID_DITHER_AMOUNT));
     ADD_P(addFloatSlider("Dither Strength", -20.0, 20.0, -20.0, 20.0, 0.0, 1, ID_DITHER_STRENGTH));
     ADD_P(addFloatSlider("Scale Dither (px)", 1.0, 16.0, 1.0, 16.0, 1.0, 0, ID_DITHER_SCALE));
@@ -374,15 +378,17 @@ static PF_Err SmartRender(PF_InData *in_data, PF_OutData *out_data, PF_SmartRend
         };
 
         majeed::DitherParams dp;
+        dp.enabled       = getCheckbox(ID_DITHER_ENABLE, true);
         dp.algorithm     = getPopup(ID_DITHER_ALGORITHM, 17);
         dp.colorMode     = getPopup(ID_DITHER_COLOR_MODE, 2);
+        dp.colorBlend    = getCheckbox(ID_DITHER_COLOR_BLEND, false);
         dp.amount        = getSlider(ID_DITHER_AMOUNT, 100.0);
+        dp.strength      = getSlider(ID_DITHER_STRENGTH, 0.0);
+        dp.scale         = getSlider(ID_DITHER_SCALE, 1.0);
         dp.whiteAmount   = getSlider(ID_DITHER_WHITE_AMOUNT, 100.0);
         dp.blackAmount   = getSlider(ID_DITHER_BLACK_AMOUNT, 100.0);
         dp.levels        = getSlider(ID_DITHER_LEVELS, 2.0);
-        dp.scale         = getSlider(ID_DITHER_SCALE, 1.0);
         dp.threshold     = getSlider(ID_DITHER_THRESHOLD, 50.0);
-        dp.strength      = getSlider(ID_DITHER_STRENGTH, 0.0);
         dp.patternScale  = getSlider(ID_DITHER_PATTERN_SCALE, 100.0);
         dp.patternAngle  = getAngle(ID_DITHER_PATTERN_ANGLE, 0.0);
         dp.contrast      = getSlider(ID_DITHER_CONTRAST, 100.0);
@@ -484,6 +490,7 @@ static PF_Err SmartRender(PF_InData *in_data, PF_OutData *out_data, PF_SmartRend
 
         // Process Lines if enabled (Default is OFF)
         if (lp.enabled && lp.amount > 0.1 && lp.opacity > 0.1) {
+            lp.edgeRef = &srcImg; // Clean source reference for contour detection
             std::vector<float> linesSrc = dstBuf;
             majeed::Image linesSrcImg = { W, H, linesSrc.data() };
             majeed::render_lines(linesSrcImg, dstImg, lp, ctx);

@@ -93,8 +93,10 @@ enum DitherPaletteMode {
 };
 
 struct DitherParams {
+    bool enabled = true;       // Requirement 3: Dither ON/OFF (default ON)
     int algorithm = 17;        // 1-indexed (Bayer 4x4 default)
     int colorMode = 2;        // 1 = Preserve, 2 = Monochrome, 3 = Strong Green, 4 = Volcanic, 5 = Strong Red, etc.
+    bool colorBlend = false;   // Requirement 4: Dither Color Blend (default OFF)
     double amount = 100.0;     // Dither Amount: 0..100%
     double strength = 0.0;     // Dither Strength: -20..+20 (default 0.0)
     double scale = 1.0;        // Dither Scale: 1..16 (default 1.0)
