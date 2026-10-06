@@ -102,6 +102,7 @@ jobs:
           Write-Host "=========================================="
 
           # Run strict Python PE & Resource verification
+          $env:PYTHONIOENCODING = "utf-8"
           python ae/verify_build.py $finalAex.FullName
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Verification failed for built YMDithers_v7.aex"
