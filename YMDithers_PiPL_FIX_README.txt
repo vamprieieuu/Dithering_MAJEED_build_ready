@@ -1,0 +1,1 @@
+Replace ae/pipl_gen.py, root YMDithers.aex, and public/YMDithers.aex. No need to replace src/, core/, or extern/AfterEffectsSDK/. The PiPL layout is matched byte-for-byte to the PiPL resource extracted from the supplied YMDithers after best.aex. AE 23.2.1 still needs final Windows load test.
