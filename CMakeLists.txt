@@ -59,8 +59,6 @@ add_library(YMDithers SHARED
     ${MAJEED_CORE_SOURCES}
 )
 
-add_dependencies(YMDithers AESDK)
-
 target_include_directories(YMDithers PRIVATE
     "${CMAKE_CURRENT_BINARY_DIR}"
     "${MAJEED_AE_DIR}"
@@ -72,8 +70,7 @@ target_link_libraries(YMDithers PRIVATE AESDK)
 
 target_compile_definitions(YMDithers PRIVATE MSWindows _WINDOWS WIN32 _CRT_SECURE_NO_WARNINGS)
 if(MSVC)
-    target_compile_definitions(YMDithers PRIVATE _MSC_VER)
-    target_compile_options(YMDithers PRIVATE /W3 /EHsc /permissive-)
+    target_compile_options(YMDithers PRIVATE /W3 /EHsc)
     target_link_options(YMDithers PRIVATE /SUBSYSTEM:WINDOWS,6.00)
 else()
     target_compile_options(YMDithers PRIVATE -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -Wno-missing-field-initializers -Wno-unknown-pragmas -O3)

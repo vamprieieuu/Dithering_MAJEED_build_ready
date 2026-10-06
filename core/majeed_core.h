@@ -154,60 +154,10 @@ inline float u01(uint32_t h) {
     return (float)(h & 0x00ffffff) * (1.0f / 16777216.0f);
 }
 
-#ifdef _WIN32
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
-
-template <typename Func>
-inline void parallel_rows(int count, Func f) {
-    if (count <= 1) {
-        f(0, count);
-        return;
-    }
-    SYSTEM_INFO sysInfo;
-    GetSystemInfo(&sysInfo);
-    int numThreads = std::max(1, std::min(8, (int)sysInfo.dwNumberOfProcessors));
-    if (numThreads <= 1) {
-        f(0, count);
-        return;
-    }
-    struct ThreadData {
-        Func* f;
-        int start;
-        int end;
-    };
-    std::vector<ThreadData> tdata((size_t)numThreads);
-    std::vector<HANDLE> handles;
-    handles.reserve((size_t)numThreads);
-
-    int chunkSize = (count + numThreads - 1) / numThreads;
-    for (int t = 0; t < numThreads; ++t) {
-        tdata[t].f = &f;
-        tdata[t].start = t * chunkSize;
-        tdata[t].end = std::min(count, (t + 1) * chunkSize);
-        if (tdata[t].start < tdata[t].end) {
-            HANDLE h = CreateThread(nullptr, 0, [](LPVOID param) -> DWORD {
-                ThreadData* td = (ThreadData*)param;
-                (*(td->f))(td->start, td->end);
-                return 0;
-            }, &tdata[t], 0, nullptr);
-            if (h) handles.push_back(h);
-            else (*(tdata[t].f))(tdata[t].start, tdata[t].end);
-        }
-    }
-    if (!handles.empty()) {
-        WaitForMultipleObjects((DWORD)handles.size(), handles.data(), TRUE, INFINITE);
-        for (HANDLE h : handles) CloseHandle(h);
-    }
-}
-#else
 template <typename Func>
 inline void parallel_rows(int count, Func f) {
     f(0, count);
 }
-#endif
 
 void render_lines(const Image& src, const Image& dst, const LinesParams& p, const FrameCtx& c);
 void render_dither(const Image& src, const Image& dst, const DitherParams& p, const FrameCtx& c);
