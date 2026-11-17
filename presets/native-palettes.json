@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "source": "src/engine/ditherEngine.ts DITHER_PALETTES",
+  "palettes": [
+    {
+      "id": 1,
+      "name": "Preserve Original Colors",
+      "mode": "preserve",
+      "colors": [
+        "#000000",
+        "#FFFFFF"
+      ],
+      "note": "Mode sentinel: source RGB channels are independently thresholded; these swatches are not used as a fixed palette."
+    },
+    {
+      "id": 2,
+      "name": "Monochrome (B&W)",
+      "mode": "fixed",
+      "colors": [
+        "#000000",
+        "#FFFFFF"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Strong Green (Phosphor / Matrix)",
+      "mode": "fixed",
+      "colors": [
+        "#050D05",
+        "#0D5920",
+        "#00E04D",
+        "#B3FF80"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Volcanic / Lava",
+      "mode": "fixed",
+      "colors": [
+        "#12080F",
+        "#991414",
+        "#FA700F",
+        "#FFF087"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Strong Red (Cyber Abyss)",
+      "mode": "fixed",
+      "colors": [
+        "#0A0005",
+        "#8C0A29",
+        "#FF0529",
+        "#FFE0E0"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Game Boy Classic",
+      "mode": "fixed",
+      "colors": [
+        "#0F380F",
+        "#306130",
+        "#8CAB0F",
+        "#9CBD0F"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Cyberpunk Neon",
+      "mode": "fixed",
+      "colors": [
+        "#050A1F",
+        "#BF0D80",
+        "#00EBE0",
+        "#FAFA99"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "Amber CRT",
+      "mode": "fixed",
+      "colors": [
+        "#1A0A03",
+        "#803800",
+        "#E67A1A",
+        "#FFDB66"
+      ]
+    }
+  ],
+  "recipeStatus": {
+    "advertised": [
+      "Game Boy",
+      "45° Newspaper Halftone",
+      "Macintosh 1-Bit Atkinson",
+      "Risograph 3-Color",
+      "Cyberpunk 2084 Terminal",
+      "CRT Slot-Mask TV",
+      "Xerox Zine Toner"
+    ],
+    "extracted": [],
+    "note": "Names are advertised in README but recipe parameter payloads were not present in the inspected source files. Do not treat these names as importable presets until source payloads are located."
+  }
+}
