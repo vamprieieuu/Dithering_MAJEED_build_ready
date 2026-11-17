@@ -1,0 +1,1638 @@
+{
+  "schemaVersion": 1,
+  "id": "dither-blood-gradient-presets",
+  "title": "DITHER BLOOD Gradient Presets",
+  "description": "Thirty selectable multi-stop gradient palettes. Each item is suitable for a square thumbnail grid and maps directly to GradientRamp stops.",
+  "ui": {
+    "layout": "grid",
+    "columns": 5,
+    "thumbnail": "horizontal-gradient-swatch",
+    "selection": "single-click-apply",
+    "searchable": true,
+    "categoryFilter": true
+  },
+  "interpolation": "linear",
+  "source": "curated DITHER BLOOD palette set",
+  "presets": [
+    {
+      "id": "db-gradient-01",
+      "index": 1,
+      "name": "Game Boy Classic",
+      "category": "Game Boy",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#0F380F",
+          "#306230",
+          "#8BAC0F",
+          "#9BBC0F"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#0F380F",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#306230",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#8BAC0F",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#9BBC0F",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-02",
+      "index": 2,
+      "name": "Game Boy Pocket",
+      "category": "Game Boy",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#1B1B1B",
+          "#555555",
+          "#AAAAAA",
+          "#EEEEEE"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#1B1B1B",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#555555",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#AAAAAA",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#EEEEEE",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-03",
+      "index": 3,
+      "name": "DMG Screen",
+      "category": "Game Boy",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#071A12",
+          "#214A36",
+          "#6B8F55",
+          "#C6D9A2"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#071A12",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#214A36",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#6B8F55",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#C6D9A2",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-04",
+      "index": 4,
+      "name": "Cyberpunk 2084",
+      "category": "Cyberpunk",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#090B2B",
+          "#4A1C7A",
+          "#F72585",
+          "#00F5D4"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#090B2B",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#4A1C7A",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#F72585",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#00F5D4",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-05",
+      "index": 5,
+      "name": "Neon Tokyo",
+      "category": "Cyberpunk",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#10002B",
+          "#5A189A",
+          "#FF006E",
+          "#3A86FF"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#10002B",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#5A189A",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#FF006E",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#3A86FF",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-06",
+      "index": 6,
+      "name": "Night City",
+      "category": "Cyberpunk",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#090A0F",
+          "#1D3557",
+          "#E6399B",
+          "#F1FA8C"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#090A0F",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#1D3557",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#E6399B",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#F1FA8C",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-07",
+      "index": 7,
+      "name": "Synthwave Sunset",
+      "category": "Synthwave",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#24104F",
+          "#7B2CBF",
+          "#F72585",
+          "#FFB703"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#24104F",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#7B2CBF",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#F72585",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#FFB703",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-08",
+      "index": 8,
+      "name": "Miami Vice",
+      "category": "Synthwave",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#14213D",
+          "#4361EE",
+          "#F15BB5",
+          "#FEE440"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#14213D",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#4361EE",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#F15BB5",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#FEE440",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-09",
+      "index": 9,
+      "name": "Vaporwave",
+      "category": "Synthwave",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#242038",
+          "#725AC1",
+          "#8D86C9",
+          "#F7ECE1"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#242038",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#725AC1",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#8D86C9",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#F7ECE1",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-10",
+      "index": 10,
+      "name": "Vintage Sepia",
+      "category": "Vintage",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#24180F",
+          "#6F4E37",
+          "#B08968",
+          "#E6CCB2"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#24180F",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#6F4E37",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#B08968",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#E6CCB2",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-11",
+      "index": 11,
+      "name": "Kodachrome",
+      "category": "Vintage",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#182C25",
+          "#C13B2A",
+          "#E6A23C",
+          "#F2D7A0"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#182C25",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#C13B2A",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#E6A23C",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#F2D7A0",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-12",
+      "index": 12,
+      "name": "Old Film",
+      "category": "Vintage",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#20231E",
+          "#59634A",
+          "#A49B72",
+          "#E4D8B4"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#20231E",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#59634A",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#A49B72",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#E4D8B4",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-13",
+      "index": 13,
+      "name": "Muted 70s",
+      "category": "Vintage",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#5B3A29",
+          "#B5654D",
+          "#D6A85F",
+          "#E7D7B1"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#5B3A29",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#B5654D",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#D6A85F",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#E7D7B1",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-14",
+      "index": 14,
+      "name": "Risograph Red Blue",
+      "category": "Print",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#172A53",
+          "#315C9B",
+          "#E84A5F",
+          "#F6C9A8"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#172A53",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#315C9B",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#E84A5F",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#F6C9A8",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-15",
+      "index": 15,
+      "name": "Risograph Citrus",
+      "category": "Print",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#264653",
+          "#2A9D8F",
+          "#E9C46A",
+          "#F4A261"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#264653",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#2A9D8F",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#E9C46A",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#F4A261",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-16",
+      "index": 16,
+      "name": "Xerox Zine",
+      "category": "Print",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#050505",
+          "#454545",
+          "#B7B7B7",
+          "#F5F5F5"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#050505",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#454545",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#B7B7B7",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#F5F5F5",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-17",
+      "index": 17,
+      "name": "Newspaper Halftone",
+      "category": "Print",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#111111",
+          "#555555",
+          "#AAAAAA",
+          "#F7F2E8"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#111111",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#555555",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#AAAAAA",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#F7F2E8",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-18",
+      "index": 18,
+      "name": "Macintosh 1-Bit",
+      "category": "Retro",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#000000",
+          "#555555",
+          "#AAAAAA",
+          "#FFFFFF"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#000000",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#555555",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#AAAAAA",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#FFFFFF",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-19",
+      "index": 19,
+      "name": "CGA 4-Color",
+      "category": "Retro",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#000000",
+          "#55FFFF",
+          "#FF55FF",
+          "#FFFFFF"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#000000",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#55FFFF",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#FF55FF",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#FFFFFF",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-20",
+      "index": 20,
+      "name": "Arcade 1980",
+      "category": "Retro",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#160B39",
+          "#4B2E83",
+          "#E83F6F",
+          "#FFB000"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#160B39",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#4B2E83",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#E83F6F",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#FFB000",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-21",
+      "index": 21,
+      "name": "Amber CRT",
+      "category": "CRT",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#1A0A03",
+          "#803800",
+          "#E67A1A",
+          "#FFDB66"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#1A0A03",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#803800",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#E67A1A",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#FFDB66",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-22",
+      "index": 22,
+      "name": "Green Phosphor",
+      "category": "CRT",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#050D05",
+          "#0D5920",
+          "#00E04D",
+          "#B3FF80"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#050D05",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#0D5920",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#00E04D",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#B3FF80",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-23",
+      "index": 23,
+      "name": "Ice Terminal",
+      "category": "CRT",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#061826",
+          "#145374",
+          "#53A7C5",
+          "#D8F3F0"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#061826",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#145374",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#53A7C5",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#D8F3F0",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-24",
+      "index": 24,
+      "name": "Lava Core",
+      "category": "Dramatic",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#12080F",
+          "#991414",
+          "#FA700F",
+          "#FFF087"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#12080F",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#991414",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#FA700F",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#FFF087",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-25",
+      "index": 25,
+      "name": "Blood Moon",
+      "category": "Dramatic",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#16060B",
+          "#5C1020",
+          "#B51D3A",
+          "#F4A6A6"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#16060B",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#5C1020",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#B51D3A",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#F4A6A6",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-26",
+      "index": 26,
+      "name": "Ocean Depths",
+      "category": "Nature",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#071E3D",
+          "#126782",
+          "#2A9D8F",
+          "#C7F9CC"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#071E3D",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#126782",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#2A9D8F",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#C7F9CC",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-27",
+      "index": 27,
+      "name": "Forest Moss",
+      "category": "Nature",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#172A1A",
+          "#3A5A40",
+          "#7A9E58",
+          "#DAD7A0"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#172A1A",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#3A5A40",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#7A9E58",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#DAD7A0",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-28",
+      "index": 28,
+      "name": "Desert Dusk",
+      "category": "Nature",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#442B1D",
+          "#A45A3D",
+          "#D99B62",
+          "#F2D6A2"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#442B1D",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#A45A3D",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#D99B62",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#F2D6A2",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-29",
+      "index": 29,
+      "name": "Pastel Dream",
+      "category": "Pastel",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#6D597A",
+          "#B56576",
+          "#E56B6F",
+          "#EAAC8B"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#6D597A",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#B56576",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#E56B6F",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#EAAC8B",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "db-gradient-30",
+      "index": 30,
+      "name": "Arctic Aurora",
+      "category": "Pastel",
+      "thumbnail": {
+        "type": "gradient",
+        "colors": [
+          "#14213D",
+          "#5BC0BE",
+          "#9BC1BC",
+          "#EAF4F4"
+        ]
+      },
+      "ramp": {
+        "interpolation": "linear",
+        "source": "luminance",
+        "reverse": false,
+        "stops": [
+          {
+            "id": 1,
+            "position": 0,
+            "color": "#14213D",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 2,
+            "position": 0.3333333333333333,
+            "color": "#5BC0BE",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 3,
+            "position": 0.6666666666666666,
+            "color": "#9BC1BC",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          },
+          {
+            "id": 4,
+            "position": 1,
+            "color": "#EAF4F4",
+            "midpoint": 0.5,
+            "opacity": 1,
+            "visible": true
+          }
+        ]
+      }
+    }
+  ]
+}
