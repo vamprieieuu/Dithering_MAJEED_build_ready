@@ -342,7 +342,7 @@ inline void apply_color_blend(float qR, float qG, float qB, float sR, float sG, 
     } else {
         float tone = (qLuma >= 0.5f) ? 1.25f : 0.55f;
         outR = clampf(lerpf(sR * tone, qR, 0.45f), 0.f, 1.f);
-        outG = clampf(lerpf(sG * tone, qR, 0.45f), 0.f, 1.f);
+        outG = clampf(lerpf(sG * tone, qG, 0.45f), 0.f, 1.f);
         outB = clampf(lerpf(sB * tone, qB, 0.45f), 0.f, 1.f);
     }
 }
